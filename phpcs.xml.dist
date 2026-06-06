@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<ruleset name="Empirical Responsive Images">
+	<description>WordPress Coding Standards for Empirical Responsive Images.</description>
+	<arg value="ps"/>
+	<file>.</file>
+	<exclude-pattern>vendor/*</exclude-pattern>
+	<exclude-pattern>node_modules/*</exclude-pattern>
+	<exclude-pattern>assets/*</exclude-pattern>
+	<rule ref="WordPress"/>
+	<config name="minimum_supported_wp_version" value="6.4"/>
+	<config name="testVersion" value="7.4-"/>
+</ruleset>
