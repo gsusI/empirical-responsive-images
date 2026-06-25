@@ -66,7 +66,7 @@ final class Cache_Controller {
 
 		$page_key = $this->current_page_key();
 
-		if ( '' === $page_key || $this->store->is_page_cache_ready( $page_key ) ) {
+		if ( '' === $page_key || ! $this->store->has_page_cache_record( $page_key ) || $this->store->is_page_cache_ready( $page_key ) ) {
 			return;
 		}
 

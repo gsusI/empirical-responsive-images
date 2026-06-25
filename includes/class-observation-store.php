@@ -145,6 +145,18 @@ final class Observation_Store {
 	}
 
 	/**
+	 * Check whether a page has image-readiness observations.
+	 *
+	 * @param string $page_key Page key.
+	 * @return bool
+	 */
+	public function has_page_cache_record( string $page_key ): bool {
+		$data = $this->get_data();
+
+		return isset( $data['pages'][ $page_key ] ) && is_array( $data['pages'][ $page_key ] );
+	}
+
+	/**
 	 * Get page cache status reason.
 	 *
 	 * @param string $page_key Page key.
