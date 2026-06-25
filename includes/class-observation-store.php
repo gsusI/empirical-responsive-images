@@ -587,7 +587,7 @@ final class Observation_Store {
 		$page['widths']         = $this->merge_width_counts( is_array( $page['widths'] ?? null ) ? $page['widths'] : array(), $snapshot['widths'] );
 		$page['missing_srcset_widths'] = array_values( $snapshot['missing_srcset_widths'] );
 
-		if ( $has_new_widths || $has_missing ) {
+		if ( $has_new_widths ) {
 			$page['status']              = 'blocked';
 			$page['ready_confirmations'] = 0;
 		} else {
