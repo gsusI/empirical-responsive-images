@@ -414,6 +414,10 @@ final class Renderer {
 			return '';
 		}
 
+		if ( ! $this->metadata_source_preserves_aspect_ratio( $relative_path, $metadata ) ) {
+			return '';
+		}
+
 		$files = isset( $metadata[ Format_Generator::METADATA_KEY ]['files'] ) && is_array( $metadata[ Format_Generator::METADATA_KEY ]['files'] ) ? $metadata[ Format_Generator::METADATA_KEY ]['files'] : array();
 
 		if ( ! empty( $files[ $relative_path ][ $format ] ) && is_string( $files[ $relative_path ][ $format ] ) ) {
@@ -429,6 +433,63 @@ final class Renderer {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Check whether an upload-relative source keeps original aspect ratio.
+	 *
+	 * @param string $relative_path Upload-relative image path.
+	 * @param array  $metadata      Attachment metadata.
+	 * @return bool
+	 */
+	private function metadata_source_preserves_aspect_ratio( string $relative_path, array $metadata ): bool {
+		$main_file = isset( $metadata['file'] ) && is_string( $metadata['file'] ) ? wp_normalize_path( $metadata['file'] ) : '';
+
+		if ( $main_file === wp_normalize_path( $relative_path ) ) {
+			return true;
+		}
+
+		$source_width  = absint( $metadata['width'] ?? 0 );
+		$source_height = absint( $metadata['height'] ?? 0 );
+		$directory     = dirname( $main_file );
+		$directory     = '.' === $directory ? '' : trailingslashit( $directory );
+
+		if ( empty( $metadata['sizes'] ) || ! is_array( $metadata['sizes'] ) ) {
+			return false;
+		}
+
+		foreach ( $metadata['sizes'] as $size ) {
+			if ( ! is_array( $size ) || empty( $size['file'] ) || ! is_string( $size['file'] ) ) {
+				continue;
+			}
+
+			if ( wp_normalize_path( $directory . $size['file'] ) !== wp_normalize_path( $relative_path ) ) {
+				continue;
+			}
+
+			return $this->metadata_size_preserves_aspect_ratio( $size, $source_width, $source_height );
+		}
+
+		return false;
+	}
+
+	/**
+	 * Check whether a metadata size keeps original aspect ratio.
+	 *
+	 * @param array $size          Size metadata.
+	 * @param int   $source_width  Original width.
+	 * @param int   $source_height Original height.
+	 * @return bool
+	 */
+	private function metadata_size_preserves_aspect_ratio( array $size, int $source_width, int $source_height ): bool {
+		$width  = absint( $size['width'] ?? 0 );
+		$height = absint( $size['height'] ?? 0 );
+
+		if ( $width < 1 || $height < 1 || $source_width < 1 || $source_height < 1 ) {
+			return false;
+		}
+
+		return abs( ( $width * $source_height ) - ( $height * $source_width ) ) <= max( 2, (int) round( $source_width * $source_height * 0.002 ) );
 	}
 
 	/**
