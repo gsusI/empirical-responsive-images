@@ -143,6 +143,10 @@ final class Format_Generator {
 				'files'        => array(),
 			);
 		}
+		$metadata[ self::METADATA_KEY ]['files'] = $this->filter_metadata_files_to_sources(
+			is_array( $metadata[ self::METADATA_KEY ]['files'] ?? null ) ? $metadata[ self::METADATA_KEY ]['files'] : array(),
+			$sources
+		);
 
 		$generated = 0;
 		$skipped   = 0;
@@ -253,10 +257,16 @@ final class Format_Generator {
 		$directory = dirname( $metadata['file'] );
 		$directory = '.' === $directory ? '' : trailingslashit( $directory );
 		$sources   = array( $metadata['file'] );
+		$source_width = absint( $metadata['width'] ?? 0 );
+		$source_height = absint( $metadata['height'] ?? 0 );
 
 		if ( ! empty( $metadata['sizes'] ) && is_array( $metadata['sizes'] ) ) {
 			foreach ( $metadata['sizes'] as $size ) {
 				if ( ! is_array( $size ) || empty( $size['file'] ) || ! is_string( $size['file'] ) ) {
+					continue;
+				}
+
+				if ( ! $this->metadata_size_preserves_aspect_ratio( $size, $source_width, $source_height ) ) {
 					continue;
 				}
 
@@ -265,6 +275,44 @@ final class Format_Generator {
 		}
 
 		return array_values( array_unique( array_map( 'wp_normalize_path', $sources ) ) );
+	}
+
+	/**
+	 * Check whether a generated metadata size keeps original aspect ratio.
+	 *
+	 * @param array $size          Size metadata.
+	 * @param int   $source_width  Original width.
+	 * @param int   $source_height Original height.
+	 * @return bool
+	 */
+	private function metadata_size_preserves_aspect_ratio( array $size, int $source_width, int $source_height ): bool {
+		$width  = absint( $size['width'] ?? 0 );
+		$height = absint( $size['height'] ?? 0 );
+
+		if ( $width < 1 || $height < 1 || $source_width < 1 || $source_height < 1 ) {
+			return false;
+		}
+
+		return abs( ( $width * $source_height ) - ( $height * $source_width ) ) <= max( 2, (int) round( $source_width * $source_height * 0.002 ) );
+	}
+
+	/**
+	 * Drop stale sidecar metadata for sources no longer eligible.
+	 *
+	 * @param array $files   Existing sidecar metadata.
+	 * @param array $sources Allowed source paths.
+	 * @return array
+	 */
+	private function filter_metadata_files_to_sources( array $files, array $sources ): array {
+		$allowed = array_fill_keys( $sources, true );
+
+		foreach ( array_keys( $files ) as $relative_path ) {
+			if ( ! is_string( $relative_path ) || ! isset( $allowed[ $relative_path ] ) ) {
+				unset( $files[ $relative_path ] );
+			}
+		}
+
+		return $files;
 	}
 
 	/**

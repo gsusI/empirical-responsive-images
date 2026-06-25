@@ -4,7 +4,7 @@ Tags: images, responsive images, thumbnails, webp, avif
 Requires at least: 6.4
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 0.1.6
+Stable tag: 0.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -86,6 +86,9 @@ Responsive `srcset` selection is width-driven. The plugin records height ranges 
 Yes. Manageable local `wp-content` image assets are observed, resized into `wp-content/uploads/empirical-responsive-images/assets/`, and rewritten with empirical `srcset` and `sizes` output.
 
 == Changelog ==
+
+= 0.1.7 =
+* Skip alternate format sidecars for attachment sub-sizes that do not preserve the original aspect ratio.
 
 = 0.1.6 =
 * Skip alpha-flattening alternate formats for transparent source images.

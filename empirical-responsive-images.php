@@ -3,7 +3,7 @@
  * Plugin Name: Empirical Responsive Images
  * Plugin URI: https://jesusiniesta.es/about
  * Description: Measures rendered image slots, registers matching WordPress image sizes, regenerates thumbnails, and serves modern image formats.
- * Version: 0.1.6
+ * Version: 0.1.7
  * Requires at least: 6.4
  * Requires PHP: 7.4
  * Author: Jesús Iniesta
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EMPIRICAL_RESPONSIVE_IMAGES_VERSION', '0.1.6' );
+define( 'EMPIRICAL_RESPONSIVE_IMAGES_VERSION', '0.1.7' );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_FILE', __FILE__ );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_URL', plugin_dir_url( __FILE__ ) );
