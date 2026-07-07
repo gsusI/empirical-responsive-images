@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Empirical Responsive Images
  * Plugin URI: https://jesusiniesta.es/about
- * Description: Measures rendered image slots, registers matching WordPress image sizes, regenerates thumbnails, and serves modern image formats.
+ * Description: Measures real image slots, registers matching sizes, regenerates thumbnails, and serves WebP/AVIF variants.
  * Version: 0.1.7
  * Requires at least: 6.4
  * Requires PHP: 7.4

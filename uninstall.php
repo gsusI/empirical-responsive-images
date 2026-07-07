@@ -13,24 +13,23 @@ delete_option( 'empirical_responsive_images_settings' );
 delete_option( 'empirical_responsive_images_observations' );
 delete_option( 'empirical_responsive_images_version' );
 
-$uploads    = wp_get_upload_dir();
-$target_dir = trailingslashit( $uploads['basedir'] ) . 'empirical-responsive-images';
-$real_base  = realpath( $uploads['basedir'] );
-$real_dir   = realpath( $target_dir );
+$empirical_responsive_images_uploads    = wp_get_upload_dir();
+$empirical_responsive_images_target_dir = trailingslashit( $empirical_responsive_images_uploads['basedir'] ) . 'empirical-responsive-images';
+$empirical_responsive_images_real_base  = realpath( $empirical_responsive_images_uploads['basedir'] );
+$empirical_responsive_images_real_dir   = realpath( $empirical_responsive_images_target_dir );
 
-if ( is_string( $real_base ) && is_string( $real_dir ) && 0 === strpos( $real_dir, trailingslashit( $real_base ) ) ) {
-	$iterator = new RecursiveIteratorIterator(
-		new RecursiveDirectoryIterator( $real_dir, FilesystemIterator::SKIP_DOTS ),
-		RecursiveIteratorIterator::CHILD_FIRST
-	);
+if (
+	is_string( $empirical_responsive_images_real_base )
+	&& is_string( $empirical_responsive_images_real_dir )
+	&& 0 === strpos( $empirical_responsive_images_real_dir, trailingslashit( $empirical_responsive_images_real_base ) )
+) {
+	require_once ABSPATH . 'wp-admin/includes/file.php';
 
-	foreach ( $iterator as $file_info ) {
-		if ( $file_info->isDir() ) {
-			rmdir( $file_info->getPathname() );
-		} else {
-			unlink( $file_info->getPathname() );
-		}
+	WP_Filesystem();
+
+	global $wp_filesystem;
+
+	if ( is_object( $wp_filesystem ) && method_exists( $wp_filesystem, 'delete' ) ) {
+		$wp_filesystem->delete( $empirical_responsive_images_real_dir, true );
 	}
-
-	rmdir( $real_dir );
 }

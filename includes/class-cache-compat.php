@@ -31,9 +31,10 @@ final class Cache_Compat {
 			'LITESPEED_NO_LAZY'     => true,
 		);
 
-		foreach ( $constants as $name => $value ) {
-			if ( ! defined( $name ) ) {
-				define( $name, $value );
+		foreach ( $constants as $constant_name => $constant_value ) {
+			if ( ! defined( $constant_name ) ) {
+				// phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.VariableConstantNameFound -- Third-party cache constants must use their documented names.
+				define( $constant_name, $constant_value );
 			}
 		}
 	}
@@ -63,9 +64,11 @@ final class Cache_Compat {
 			wp_cache_post_change( 0 );
 		}
 
+		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party cache hooks must use their documented names.
 		do_action( 'litespeed_purge_url', $url );
 		do_action( 'sg_cachepress_purge_cache' );
 		do_action( 'breeze_clear_all_cache' );
+		// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		do_action( 'empirical_responsive_images_purge_url', $url );
 	}
 
@@ -91,9 +94,11 @@ final class Cache_Compat {
 			\autoptimizeCache::clearall();
 		}
 
+		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party cache hooks must use their documented names.
 		do_action( 'litespeed_purge_all' );
 		do_action( 'sg_cachepress_purge_cache' );
 		do_action( 'breeze_clear_all_cache' );
+		// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		do_action( 'empirical_responsive_images_purge_all' );
 	}
 }

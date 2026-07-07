@@ -122,8 +122,6 @@ final class Plugin {
 		$admin_page      = new Admin_Page( $this->settings, $this->observation_store, $this->format_generator );
 		$rest_controller = new REST_Controller( $this->settings, $this->observation_store, $this->format_generator, $this->regenerator );
 
-		load_plugin_textdomain( 'empirical-responsive-images', false, dirname( plugin_basename( EMPIRICAL_RESPONSIVE_IMAGES_FILE ) ) . '/languages' );
-
 		$this->maybe_run_version_upgrade();
 		$cache_controller->maybe_mark_current_request_uncacheable();
 
