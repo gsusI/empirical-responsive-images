@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+.distignore
+.wordpress-org
+.wporg-build
+.DS_Store
+build
+node_modules
+vendor
+tools
+phpcs.xml.dist
+*.log
+*.zip

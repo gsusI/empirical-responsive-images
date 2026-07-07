@@ -106,7 +106,9 @@ final class Admin_Page {
 				'batchSize'          => 5,
 				'i18n'               => array(
 					'starting' => __( 'Starting regeneration...', 'empirical-responsive-images' ),
+					/* translators: 1: processed image records, 2: total image records, 3: generated files. */
 					'running'  => __( 'Processed %1$d of %2$d image records. Generated %3$d files.', 'empirical-responsive-images' ),
+					/* translators: 1: processed image records, 2: generated files. */
 					'done'     => __( 'Done. Processed %1$d image records. Generated %2$d files.', 'empirical-responsive-images' ),
 					'failed'   => __( 'Regeneration failed.', 'empirical-responsive-images' ),
 				),

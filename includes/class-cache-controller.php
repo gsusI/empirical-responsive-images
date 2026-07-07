@@ -119,7 +119,7 @@ final class Cache_Controller {
 	 * @return string
 	 */
 	private function current_page_key(): string {
-		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
 
 		return Observation_Store::page_key_from_url( home_url( $request_uri ) );
 	}

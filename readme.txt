@@ -2,13 +2,13 @@
 Contributors: jesusiniesta
 Tags: images, responsive images, thumbnails, webp, avif
 Requires at least: 6.4
-Tested up to: 6.8
+Tested up to: 7.0
 Requires PHP: 7.4
 Stable tag: 0.1.7
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Measures rendered image slots, registers matching image sizes, regenerates thumbnails, and serves responsive variants plus WebP/AVIF sidecars when supported.
+Measures real image slots, registers matching sizes, regenerates thumbnails, and serves WebP/AVIF variants.
 
 == Description ==
 
