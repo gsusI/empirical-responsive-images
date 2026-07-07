@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Empirical Responsive Images
- * Plugin URI: https://jesusiniesta.es/about
+ * Plugin URI: https://github.com/gsusI/empirical-responsive-images
  * Description: Measures real image slots, registers matching sizes, regenerates thumbnails, and serves WebP/AVIF variants.
  * Version: 0.1.7
  * Requires at least: 6.4
