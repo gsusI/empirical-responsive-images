@@ -73,9 +73,21 @@ build_zip() {
 			-x '${SLUG}/node_modules' '${SLUG}/node_modules/*' \
 			-x '${SLUG}/tests' '${SLUG}/tests/*' \
 			-x '${SLUG}/tmp' '${SLUG}/tmp/*' \
+			-x '${SLUG}/README*' '${SLUG}/**/README*' \
+			-x '${SLUG}/CONTRIBUTING*' '${SLUG}/**/CONTRIBUTING*' \
+			-x '${SLUG}/AGENTS*' '${SLUG}/**/AGENTS*' \
+			-x '${SLUG}/*.md' '${SLUG}/**/*.md' \
+			-x '${SLUG}/*.markdown' '${SLUG}/**/*.markdown' \
+			-x '${SLUG}/*.txt' '${SLUG}/**/*.txt' \
+			-x '${SLUG}/.env' '${SLUG}/.env.*' '${SLUG}/**/.env' '${SLUG}/**/.env.*' \
+			-x '${SLUG}/*.pem' '${SLUG}/**/*.pem' '${SLUG}/*.key' '${SLUG}/**/*.key' \
+			-x '${SLUG}/*.crt' '${SLUG}/**/*.crt' '${SLUG}/*.sql' '${SLUG}/**/*.sql' \
+			-x '${SLUG}/*.sqlite' '${SLUG}/**/*.sqlite' '${SLUG}/*.bak' '${SLUG}/**/*.bak' \
+			-x '${SLUG}/*.orig' '${SLUG}/**/*.orig' '${SLUG}/*.swp' '${SLUG}/**/*.swp' \
 			-x '${SLUG}/.DS_Store' '${SLUG}/**/.DS_Store' \
 			-x '${SLUG}/.gitignore' '${SLUG}/.distignore' '${SLUG}/phpcs.xml.dist' \
-			-x '${SLUG}/*.log' '${SLUG}/*.zip'"
+			-x '${SLUG}/*.log' '${SLUG}/**/*.log' '${SLUG}/*.zip' '${SLUG}/**/*.zip' && \
+			zip -q '/out/${SLUG}-${VERSION}.zip' '${SLUG}/readme.txt'"
 	docker run --rm \
 		--volume "${BUILD_DIR}:/out:ro" \
 		"${PACKAGE_IMAGE}" \
