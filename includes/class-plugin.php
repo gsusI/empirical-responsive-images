@@ -138,7 +138,7 @@ final class Plugin {
 		add_filter( 'wp_get_attachment_image', array( $renderer, 'filter_attachment_image_html' ), 20, 5 );
 		add_filter( 'wp_content_img_tag', array( $renderer, 'filter_content_image_html' ), 20, 3 );
 		add_filter( 'wp_get_attachment_image_attributes', array( $this->image_sizes, 'filter_attachment_attributes' ), 20, 3 );
-		add_action( 'template_redirect', array( $renderer, 'start_output_buffer' ), 999 );
+		add_filter( 'wp_template_enhancement_output_buffer', array( $renderer, 'filter_final_html' ) );
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'empirical-responsive-images', CLI_Command::class );

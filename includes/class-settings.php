@@ -63,6 +63,7 @@ final class Settings {
 			'min_rendered_width'        => 1,
 			'max_registered_width'      => 2560,
 			'max_observed_sizes'        => 80,
+			'max_observed_pages'        => 1000,
 			'max_payload_images'        => 40,
 		);
 	}
@@ -105,6 +106,7 @@ final class Settings {
 			'min_rendered_width'        => $this->sanitize_int( $input['min_rendered_width'] ?? $defaults['min_rendered_width'], 1, 1200 ),
 			'max_registered_width'      => $this->sanitize_int( $input['max_registered_width'] ?? $defaults['max_registered_width'], 320, 5120 ),
 			'max_observed_sizes'        => $this->sanitize_int( $input['max_observed_sizes'] ?? $defaults['max_observed_sizes'], 8, 300 ),
+			'max_observed_pages'        => $this->sanitize_int( $input['max_observed_pages'] ?? $defaults['max_observed_pages'], 100, 5000 ),
 			'max_payload_images'        => $this->sanitize_int( $input['max_payload_images'] ?? $defaults['max_payload_images'], 1, 120 ),
 		);
 	}

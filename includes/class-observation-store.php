@@ -379,6 +379,7 @@ final class Observation_Store {
 		$data['assets']                  = $this->trim_assets( is_array( $data['assets'] ?? null ) ? $data['assets'] : array(), $settings->get_int( 'max_observed_sizes' ) * 4 );
 		$page_update                     = $this->update_page_cache_state( $data, $page_key, $page_url, $seen, $page_snapshot, $settings );
 		$data                            = $page_update['data'];
+		$data['pages']                   = $this->trim_pages( $data['pages'], $settings->get_int( 'max_observed_pages' ) );
 
 		update_option( self::OPTION_NAME, $data, false );
 
@@ -848,6 +849,24 @@ final class Observation_Store {
 		);
 
 		return array_slice( $assets, 0, max( 20, $limit ), true );
+	}
+
+	/**
+	 * Keep most recently observed page entries.
+	 *
+	 * @param array $pages Page entries.
+	 * @param int   $limit Max entries.
+	 * @return array
+	 */
+	private function trim_pages( array $pages, int $limit ): array {
+		uasort(
+			$pages,
+			static function ( array $a, array $b ): int {
+				return absint( $b['last_seen'] ?? 0 ) <=> absint( $a['last_seen'] ?? 0 );
+			}
+		);
+
+		return array_slice( $pages, 0, max( 100, $limit ), true );
 	}
 
 	/**
