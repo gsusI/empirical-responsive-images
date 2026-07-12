@@ -93,26 +93,13 @@ final class Renderer {
 	}
 
 	/**
-	 * Start final HTML buffer for non-attachment local assets.
-	 *
-	 * @return void
-	 */
-	public function start_output_buffer(): void {
-		if ( is_admin() || is_feed() || wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ! $this->settings->is_asset_processing_enabled() ) {
-			return;
-		}
-
-		ob_start( array( $this, 'filter_final_html' ) );
-	}
-
-	/**
 	 * Enhance local asset image tags in final HTML.
 	 *
 	 * @param string $html Final HTML.
 	 * @return string
 	 */
 	public function filter_final_html( string $html ): string {
-		if ( '' === $html || false === stripos( $html, '<img' ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
+		if ( ! $this->settings->is_asset_processing_enabled() || '' === $html || false === stripos( $html, '<img' ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
 			return $html;
 		}
 

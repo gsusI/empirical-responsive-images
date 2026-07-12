@@ -1,10 +1,10 @@
 === Empirical Responsive Images ===
 Contributors: jesusiniesta
 Tags: images, responsive images, thumbnails, webp, avif
-Requires at least: 6.4
+Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.1.7
+Stable tag: 0.1.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -86,6 +86,10 @@ Responsive `srcset` selection is width-driven. The plugin records height ranges 
 Yes. Manageable local `wp-content` image assets are observed, resized into `wp-content/uploads/empirical-responsive-images/assets/`, and rewritten with empirical `srcset` and `sizes` output.
 
 == Changelog ==
+
+= 0.1.8 =
+* Use WordPress's template enhancement output buffer for full-page asset processing.
+* Bound public observation rate-limit storage and retained page observations.
 
 = 0.1.7 =
 * Skip alternate format sidecars for attachment sub-sizes that do not preserve the original aspect ratio.

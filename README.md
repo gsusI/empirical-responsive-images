@@ -16,7 +16,7 @@ It is built for people who want better responsive image output without sending m
 
 ## Requirements
 
-- WordPress 6.4 or newer.
+- WordPress 6.9 or newer.
 - PHP 7.4 or newer.
 - GD or Imagick through the normal WordPress image editor APIs.
 

@@ -16,6 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class REST_Controller {
 	private const NAMESPACE = 'empirical-responsive-images/v1';
+	private const RATE_LIMIT_BUCKETS = 64;
+	private const RATE_LIMIT_PER_MINUTE = 60;
 
 	/**
 	 * Settings.
@@ -194,17 +196,18 @@ final class REST_Controller {
 	}
 
 	/**
-	 * Basic public write rate limit. Stores only salted anonymous transient key.
+	 * Basic public write rate limit with bounded transient cardinality.
 	 *
 	 * @return bool
 	 */
 	private function allow_public_observation_request(): bool {
 		$ip_address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
-		$key        = 'eri_obs_' . md5( $ip_address . '|' . $user_agent . '|' . wp_salt( 'nonce' ) );
+		$client_hash = hash_hmac( 'sha256', $ip_address, wp_salt( 'nonce' ) );
+		$bucket      = hexdec( substr( $client_hash, 0, 4 ) ) % self::RATE_LIMIT_BUCKETS;
+		$key         = 'eri_obs_rate_' . $bucket;
 		$count      = absint( get_transient( $key ) );
 
-		if ( $count >= 60 ) {
+		if ( $count >= self::RATE_LIMIT_PER_MINUTE ) {
 			return false;
 		}
 
