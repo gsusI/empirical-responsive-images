@@ -6,7 +6,7 @@ It is built for people who want better responsive image output without sending m
 
 ## What it does
 
-- Observes rendered image slots on real front-end pages.
+- Observes rendered image slots on front-end pages visited by logged-in administrators.
 - Stores aggregate width and viewport data in WordPress options.
 - Registers empirical image sizes with WordPress.
 - Regenerates missing attachment sub-sizes from the admin screen or WP-CLI.
@@ -32,13 +32,30 @@ tools/wporg-release.sh package
 
 ## Verify release readiness
 
-The release workflow runs inside Docker so the package is checked in a clean WordPress environment:
+Install locked development dependencies, then run fast local quality gates:
 
 ```sh
-tools/wporg-release.sh all
+composer install
+just check
 ```
 
-That command lints PHP, builds the wordpress.org ZIP, runs Plugin Check inside Docker, and creates an SVN-ready tree under `build/wporg/svn`.
+This runs PHP syntax checks, WordPress and PHP compatibility standards, PHPStan, PHPUnit, and version synchronization.
+
+Run the complete release gate inside Docker so the built ZIP is activated and checked in a clean WordPress environment:
+
+```sh
+just release-check
+```
+
+That command runs local quality gates, builds the wordpress.org ZIP, runs Plugin Check against the packaged artifact, and creates an SVN-ready tree under `build/wporg/svn`.
+
+## Operational guarantees
+
+- Observation writes require an authenticated administrator, a valid WordPress REST nonce, same-site page data, and bounded payloads.
+- Stored page identities contain canonical paths without query strings.
+- Front-end rendering never creates image files. Upload and explicit regeneration workflows own file writes.
+- Uninstall keeps data by default. Destructive cleanup requires an explicit administrator setting.
+- Release packages are version-synchronized and contain no test suite, local build data, credentials, or development dependencies.
 
 ## Contributing
 
