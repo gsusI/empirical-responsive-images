@@ -1,0 +1,276 @@
+# Copyright (C) 2026 Jesús Iniesta
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Empirical Responsive Images 0.2.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/empirical-responsive-images\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-07-19T09:44:48+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: empirical-responsive-images\n"
+
+#. Plugin Name of the plugin
+#: empirical-responsive-images.php
+#: includes/class-admin-page.php:138
+msgid "Empirical Responsive Images"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: empirical-responsive-images.php
+msgid "https://github.com/gsusI/empirical-responsive-images"
+msgstr ""
+
+#. Description of the plugin
+#: empirical-responsive-images.php
+msgid "Measures real image slots, registers matching sizes, regenerates thumbnails, and serves WebP/AVIF variants."
+msgstr ""
+
+#. Author of the plugin
+#: empirical-responsive-images.php
+msgid "Jesús Iniesta"
+msgstr ""
+
+#. Author URI of the plugin
+#: empirical-responsive-images.php
+msgid "https://jesusiniesta.es/about"
+msgstr ""
+
+#: includes/class-admin-page.php:66
+#: includes/class-admin-page.php:67
+msgid "Responsive Images"
+msgstr ""
+
+#: includes/class-admin-page.php:108
+msgid "Starting regeneration..."
+msgstr ""
+
+#. translators: 1: processed image records, 2: total image records, 3: generated files.
+#: includes/class-admin-page.php:110
+#, php-format
+msgid "Processed %1$d of %2$d image records. Generated %3$d files."
+msgstr ""
+
+#. translators: 1: processed image records, 2: generated files.
+#: includes/class-admin-page.php:112
+#, php-format
+msgid "Done. Processed %1$d image records. Generated %2$d files."
+msgstr ""
+
+#. translators: 1: processed image records, 2: generated files, 3: errors.
+#: includes/class-admin-page.php:114
+#, php-format
+msgid "Done with errors. Processed %1$d image records. Generated %2$d files. %3$d errors need review."
+msgstr ""
+
+#: includes/class-admin-page.php:115
+msgid "Regeneration failed."
+msgstr ""
+
+#: includes/class-admin-page.php:141
+msgid "Observed image slots"
+msgstr ""
+
+#: includes/class-admin-page.php:143
+msgid "For security, the front-end observer runs only for logged-in administrators. It records aggregate rendered image widths, DPR, viewport widths, attachment IDs, and page paths."
+msgstr ""
+
+#: includes/class-admin-page.php:147
+msgid "Payloads"
+msgstr ""
+
+#: includes/class-admin-page.php:151
+msgid "Image observations"
+msgstr ""
+
+#: includes/class-admin-page.php:155
+#: includes/class-admin-page.php:210
+msgid "Registered empirical sizes"
+msgstr ""
+
+#: includes/class-admin-page.php:159
+#: includes/class-admin-page.php:215
+msgid "Observed local assets"
+msgstr ""
+
+#: includes/class-admin-page.php:166
+msgid "Modern format support"
+msgstr ""
+
+#: includes/class-admin-page.php:175
+msgid "enabled and supported"
+msgstr ""
+
+#: includes/class-admin-page.php:175
+msgid "enabled but not supported by this server"
+msgstr ""
+
+#: includes/class-admin-page.php:176
+msgid "disabled"
+msgstr ""
+
+#: includes/class-admin-page.php:188
+msgid "Settings"
+msgstr ""
+
+#: includes/class-admin-page.php:191
+msgid "Collect rendered image sizes"
+msgstr ""
+
+#: includes/class-admin-page.php:192
+msgid "Prevent page caching until image sizes are confirmed"
+msgstr ""
+
+#: includes/class-admin-page.php:193
+msgid "Serve generated WebP/AVIF through picture sources"
+msgstr ""
+
+#: includes/class-admin-page.php:194
+msgid "Generate responsive variants for local theme and plugin asset images"
+msgstr ""
+
+#: includes/class-admin-page.php:195
+msgid "Generate WebP sidecars when supported"
+msgstr ""
+
+#: includes/class-admin-page.php:196
+msgid "Generate AVIF sidecars when supported"
+msgstr ""
+
+#: includes/class-admin-page.php:197
+msgid "Stable uncached runs before caching"
+msgstr ""
+
+#: includes/class-admin-page.php:198
+msgid "Measurement sample rate"
+msgstr ""
+
+#: includes/class-admin-page.php:199
+msgid "Round observed widths to nearest pixels"
+msgstr ""
+
+#: includes/class-admin-page.php:200
+msgid "Minimum rendered image width to observe"
+msgstr ""
+
+#: includes/class-admin-page.php:201
+msgid "Maximum registered width"
+msgstr ""
+
+#: includes/class-admin-page.php:202
+msgid "Delete observations, settings, and generated asset files when uninstalling"
+msgstr ""
+
+#: includes/class-admin-page.php:205
+msgid "Save settings"
+msgstr ""
+
+#: includes/class-admin-page.php:220
+msgid "Regenerate thumbnails"
+msgstr ""
+
+#: includes/class-admin-page.php:221
+msgid "Regenerates missing image subsizes for all image attachments, then creates observed local asset variants and WebP/AVIF sidecars when the server supports them."
+msgstr ""
+
+#: includes/class-admin-page.php:224
+msgid "Force rebuild existing metadata and sidecars"
+msgstr ""
+
+#: includes/class-admin-page.php:228
+msgid "Regenerate all image variants"
+msgstr ""
+
+#: includes/class-admin-page.php:254
+msgid "Enabled"
+msgstr ""
+
+#: includes/class-admin-page.php:295
+msgid "No front-end image observations yet. While logged in as an administrator, visit the site on desktop and mobile, then return here."
+msgstr ""
+
+#: includes/class-admin-page.php:303
+msgid "Image size"
+msgstr ""
+
+#: includes/class-admin-page.php:304
+msgid "Width"
+msgstr ""
+
+#: includes/class-admin-page.php:305
+msgid "Height range"
+msgstr ""
+
+#: includes/class-admin-page.php:306
+#: includes/class-admin-page.php:347
+msgid "Observations"
+msgstr ""
+
+#: includes/class-admin-page.php:307
+msgid "Viewports"
+msgstr ""
+
+#: includes/class-admin-page.php:308
+msgid "DPRs"
+msgstr ""
+
+#: includes/class-admin-page.php:336
+msgid "No manageable local asset images observed yet."
+msgstr ""
+
+#: includes/class-admin-page.php:344
+msgid "Asset"
+msgstr ""
+
+#: includes/class-admin-page.php:345
+msgid "Observed widths"
+msgstr ""
+
+#: includes/class-admin-page.php:346
+msgid "Observed slots"
+msgstr ""
+
+#: includes/class-asset-manager.php:568
+#: includes/class-asset-manager.php:624
+msgid "Could not create asset image directory."
+msgstr ""
+
+#: includes/class-format-generator.php:93
+msgid "Original file is missing."
+msgstr ""
+
+#: includes/class-format-generator.php:108
+msgid "Attachment metadata could not be generated."
+msgstr ""
+
+#: includes/class-format-generator.php:247
+msgid "Could not create sidecar image directory."
+msgstr ""
+
+#. translators: %d: attachment ID.
+#: includes/class-regenerator.php:113
+#, php-format
+msgid "Attachment %d has no readable original file."
+msgstr ""
+
+#. translators: %d: attachment ID.
+#: includes/class-regenerator.php:133
+#, php-format
+msgid "Attachment %d metadata could not be regenerated."
+msgstr ""
+
+#: includes/class-rest-controller.php:161
+msgid "Image observation payload is too large."
+msgstr ""
+
+#: includes/class-rest-controller.php:175
+msgid "Image observations must come from this site."
+msgstr ""
+
+#: includes/class-rest-controller.php:185
+msgid "Image observation storage is busy. Retry shortly."
+msgstr ""
