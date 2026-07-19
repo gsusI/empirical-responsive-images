@@ -3,7 +3,7 @@
  * Plugin Name: Empirical Responsive Images
  * Plugin URI: https://github.com/gsusI/empirical-responsive-images
  * Description: Measures real image slots, registers matching sizes, regenerates thumbnails, and serves WebP/AVIF variants.
- * Version: 0.1.8
+ * Version: 0.2.0
  * Requires at least: 6.9
  * Requires PHP: 7.4
  * Author: Jesús Iniesta
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'EMPIRICAL_RESPONSIVE_IMAGES_VERSION', '0.1.8' );
+define( 'EMPIRICAL_RESPONSIVE_IMAGES_VERSION', '0.2.0' );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_FILE', __FILE__ );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_DIR', plugin_dir_path( __FILE__ ) );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_URL', plugin_dir_url( __FILE__ ) );

@@ -4,6 +4,8 @@
 .distignore
 .wordpress-org
 .wporg-build
+.phpstan-cache
+.phpunit.result.cache
 .DS_Store
 README.md
 CONTRIBUTING.md
@@ -12,6 +14,7 @@ AGENTS.md
 *.markdown
 *.txt
 !readme.txt
+!changelog.txt
 .env
 .env.*
 *.pem
@@ -29,5 +32,10 @@ vendor
 tools
 tests
 phpcs.xml.dist
+phpstan.neon.dist
+phpunit.xml.dist
+composer.json
+composer.lock
+justfile
 *.log
 *.zip

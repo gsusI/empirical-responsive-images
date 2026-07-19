@@ -1,0 +1,40 @@
+= 0.2.0 - 2026-07-19 =
+* Security - Require administrator capability and REST nonce verification for every observation write.
+* Fixed - Use SiteGround Speed Optimizer's documented public purge functions instead of an unregistered action name.
+* Changed - Use the full plugin prefix for generated image-size names and observer data attributes.
+* Changed - Keep front-end rendering read-only; missing local asset variants now require explicit regeneration.
+* Changed - Preserve plugin data on uninstall unless an administrator explicitly opts into deletion.
+* Fixed - Prevent duplicate sidecar encoding during forced attachment regeneration.
+* Fixed - Serialize concurrent observation writes to prevent lost aggregate data.
+* Fixed - Purge a page cache when its first observation creates a blocked readiness record.
+* Security - Reject oversized or off-site observation payloads and omit query strings from stored page keys.
+* Added - Support custom WordPress content and upload directory mappings for local assets.
+* Added - PHPUnit, PHPCS, PHP compatibility, PHPStan, version-sync, CI, and package quality gates.
+
+= 0.1.8 - 2026-07-12 =
+* Changed - Use WordPress's template enhancement output buffer for full-page asset processing.
+* Changed - Bound public observation rate-limit storage and retained page observations.
+
+= 0.1.7 =
+* Fixed - Skip alternate format sidecars for attachment sub-sizes that do not preserve the original aspect ratio.
+
+= 0.1.6 =
+* Fixed - Skip alpha-flattening alternate formats for transparent source images.
+
+= 0.1.5 =
+* Fixed - Treat asset srcsets capped at the original source width as cache-ready.
+
+= 0.1.4 =
+* Fixed - Match generated asset variant URLs to the public site scheme to avoid mixed-content requests.
+
+= 0.1.3 =
+* Added - Support static GIF assets while skipping animated GIFs to avoid animation loss.
+
+= 0.1.2 =
+* Changed - Observe small images by default so theme asset covers, logos, and icons can be captured.
+
+= 0.1.1 =
+* Added - Generate empirical responsive variants for local theme and plugin asset images.
+
+= 0.1.0 =
+* Added - Initial release.
