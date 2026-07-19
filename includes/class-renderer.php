@@ -23,13 +23,6 @@ final class Renderer {
 	private $settings;
 
 	/**
-	 * Format generator.
-	 *
-	 * @var Format_Generator
-	 */
-	private $format_generator;
-
-	/**
 	 * Observation store.
 	 *
 	 * @var Observation_Store
@@ -47,17 +40,16 @@ final class Renderer {
 	 * Constructor.
 	 *
 	 * @param Settings          $settings Settings.
-	 * @param Format_Generator  $format_generator Format generator.
 	 * @param Observation_Store $store Observation store.
 	 * @param Asset_Manager     $asset_manager Asset manager.
 	 */
-	public function __construct( Settings $settings, Format_Generator $format_generator, Observation_Store $store, Asset_Manager $asset_manager ) {
-		$this->settings         = $settings;
-		$this->format_generator = $format_generator;
-		$this->store            = $store;
-		$this->asset_manager    = $asset_manager;
+	public function __construct( Settings $settings, Observation_Store $store, Asset_Manager $asset_manager ) {
+		$this->settings      = $settings;
+		$this->store         = $store;
+		$this->asset_manager = $asset_manager;
 	}
 
+	// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WordPress filter signature requires $attr.
 	/**
 	 * Filter WP-generated attachment image HTML.
 	 *
@@ -75,6 +67,7 @@ final class Renderer {
 
 		return $this->wrap_image_html( $html, $attachment_id );
 	}
+	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 
 	/**
 	 * Filter content image HTML.
@@ -108,7 +101,7 @@ final class Renderer {
 		$html      = preg_replace_callback(
 			'/<picture\b[^>]*>.*?<\/picture>/is',
 			static function ( array $matches ) use ( &$protected ): string {
-				$key               = '<!--eri-picture-' . count( $protected ) . '-->';
+				$key               = '<!--empirical-responsive-images-picture-' . count( $protected ) . '-->';
 				$protected[ $key ] = $matches[0];
 
 				return $key;
@@ -196,7 +189,7 @@ final class Renderer {
 
 		$processor = new \WP_HTML_Tag_Processor( $html );
 
-		if ( ! $processor->next_tag( 'IMG' ) ) {
+		if ( ! $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
 			return $html;
 		}
 
@@ -216,7 +209,7 @@ final class Renderer {
 			return $html;
 		}
 
-		$sources = $this->asset_manager->build_asset_sources( $src, $candidate['target_widths'], is_array( $candidate['slot_widths'] ?? null ) ? $candidate['slot_widths'] : array(), false );
+		$sources = $this->asset_manager->get_existing_asset_sources( $src, $candidate['target_widths'], is_array( $candidate['slot_widths'] ?? null ) ? $candidate['slot_widths'] : array() );
 
 		if ( empty( $sources['srcset'] ) ) {
 			return $html;
@@ -278,7 +271,7 @@ final class Renderer {
 
 		$processor = new \WP_HTML_Tag_Processor( $html );
 
-		if ( ! $processor->next_tag( 'IMG' ) ) {
+		if ( ! $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
 			return $attributes;
 		}
 
@@ -363,7 +356,10 @@ final class Renderer {
 	private function parse_srcset( string $srcset ): array {
 		$items = array();
 
-		foreach ( preg_split( '/,\s*/', trim( $srcset ) ) ?: array() as $part ) {
+		$srcset_parts = preg_split( '/,\s*/', trim( $srcset ) );
+		$srcset_parts = is_array( $srcset_parts ) ? $srcset_parts : array();
+
+		foreach ( $srcset_parts as $part ) {
 			$part = trim( $part );
 
 			if ( '' === $part ) {
@@ -432,7 +428,7 @@ final class Renderer {
 	private function metadata_source_preserves_aspect_ratio( string $relative_path, array $metadata ): bool {
 		$main_file = isset( $metadata['file'] ) && is_string( $metadata['file'] ) ? wp_normalize_path( $metadata['file'] ) : '';
 
-		if ( $main_file === wp_normalize_path( $relative_path ) ) {
+		if ( wp_normalize_path( $relative_path ) === $main_file ) {
 			return true;
 		}
 

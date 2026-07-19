@@ -118,9 +118,9 @@ final class Plugin {
 		$this->regenerator       = new Regenerator( $this->format_generator, $this->observation_store, $this->asset_manager, $this->settings );
 
 		$cache_controller = new Cache_Controller( $this->settings, $this->observation_store );
-		$renderer        = new Renderer( $this->settings, $this->format_generator, $this->observation_store, $this->asset_manager );
-		$admin_page      = new Admin_Page( $this->settings, $this->observation_store, $this->format_generator );
-		$rest_controller = new REST_Controller( $this->settings, $this->observation_store, $this->format_generator, $this->regenerator );
+		$renderer         = new Renderer( $this->settings, $this->observation_store, $this->asset_manager );
+		$admin_page       = new Admin_Page( $this->settings, $this->observation_store, $this->format_generator );
+		$rest_controller  = new REST_Controller( $this->settings, $this->observation_store, $this->format_generator, $this->regenerator );
 
 		$this->maybe_run_version_upgrade();
 		$cache_controller->maybe_mark_current_request_uncacheable();

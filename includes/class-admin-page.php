@@ -105,12 +105,14 @@ final class Admin_Page {
 				'nonce'              => wp_create_nonce( 'wp_rest' ),
 				'batchSize'          => 5,
 				'i18n'               => array(
-					'starting' => __( 'Starting regeneration...', 'empirical-responsive-images' ),
+					'starting'       => __( 'Starting regeneration...', 'empirical-responsive-images' ),
 					/* translators: 1: processed image records, 2: total image records, 3: generated files. */
-					'running'  => __( 'Processed %1$d of %2$d image records. Generated %3$d files.', 'empirical-responsive-images' ),
+					'running'        => __( 'Processed %1$d of %2$d image records. Generated %3$d files.', 'empirical-responsive-images' ),
 					/* translators: 1: processed image records, 2: generated files. */
-					'done'     => __( 'Done. Processed %1$d image records. Generated %2$d files.', 'empirical-responsive-images' ),
-					'failed'   => __( 'Regeneration failed.', 'empirical-responsive-images' ),
+					'done'           => __( 'Done. Processed %1$d image records. Generated %2$d files.', 'empirical-responsive-images' ),
+					/* translators: 1: processed image records, 2: generated files, 3: errors. */
+					'doneWithErrors' => __( 'Done with errors. Processed %1$d image records. Generated %2$d files. %3$d errors need review.', 'empirical-responsive-images' ),
+					'failed'         => __( 'Regeneration failed.', 'empirical-responsive-images' ),
 				),
 			)
 		);
@@ -138,7 +140,7 @@ final class Admin_Page {
 			<section class="empirical-responsive-images-admin-card empirical-responsive-images-admin-card--summary" aria-labelledby="empirical-responsive-images-summary-title">
 				<h2 class="empirical-responsive-images-admin-card__title" id="empirical-responsive-images-summary-title"><?php esc_html_e( 'Observed image slots', 'empirical-responsive-images' ); ?></h2>
 				<p class="empirical-responsive-images-admin-card__description">
-					<?php esc_html_e( 'The front-end observer records aggregate rendered image widths, DPR, viewport widths, attachment IDs, and page paths. It does not persist raw IP addresses.', 'empirical-responsive-images' ); ?>
+					<?php esc_html_e( 'For security, the front-end observer runs only for logged-in administrators. It records aggregate rendered image widths, DPR, viewport widths, attachment IDs, and page paths.', 'empirical-responsive-images' ); ?>
 				</p>
 				<ul class="empirical-responsive-images-summary-list">
 					<li class="empirical-responsive-images-summary-list__item">
@@ -197,6 +199,7 @@ final class Admin_Page {
 							<?php $this->render_number_row( 'rounding_step', __( 'Round observed widths to nearest pixels', 'empirical-responsive-images' ), $options, '8', '256', '1' ); ?>
 							<?php $this->render_number_row( 'min_rendered_width', __( 'Minimum rendered image width to observe', 'empirical-responsive-images' ), $options, '1', '1200', '1' ); ?>
 							<?php $this->render_number_row( 'max_registered_width', __( 'Maximum registered width', 'empirical-responsive-images' ), $options, '320', '5120', '1' ); ?>
+							<?php $this->render_checkbox_row( 'delete_data_on_uninstall', __( 'Delete observations, settings, and generated asset files when uninstalling', 'empirical-responsive-images' ), $options ); ?>
 						</tbody>
 					</table>
 					<?php submit_button( __( 'Save settings', 'empirical-responsive-images' ), 'primary', 'submit', false, array( 'class' => 'empirical-responsive-images-settings-form__submit button button-primary' ) ); ?>
@@ -289,7 +292,7 @@ final class Admin_Page {
 	private function render_sizes_table( array $candidates ): void {
 		if ( empty( $candidates ) ) {
 			?>
-			<p class="empirical-responsive-images-empty-state"><?php esc_html_e( 'No front-end image observations yet. Visit the site on desktop and mobile, then return here.', 'empirical-responsive-images' ); ?></p>
+			<p class="empirical-responsive-images-empty-state"><?php esc_html_e( 'No front-end image observations yet. While logged in as an administrator, visit the site on desktop and mobile, then return here.', 'empirical-responsive-images' ); ?></p>
 			<?php
 			return;
 		}

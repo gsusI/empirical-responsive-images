@@ -80,7 +80,7 @@ final class Regenerator {
 
 		$attachment_ids = array();
 
-		if ( $offset < $attachment_total && $remaining > 0 ) {
+		if ( $offset < $attachment_total ) {
 			$query = new \WP_Query(
 				array(
 					'post_type'      => 'attachment',
@@ -118,7 +118,11 @@ final class Regenerator {
 				continue;
 			}
 
-			$metadata = $force ? wp_generate_attachment_metadata( $attachment_id, $file ) : wp_update_image_subsizes( $attachment_id );
+			$metadata = $this->format_generator->without_metadata_filter(
+				static function () use ( $attachment_id, $file, $force ) {
+					return $force ? wp_generate_attachment_metadata( $attachment_id, $file ) : wp_update_image_subsizes( $attachment_id );
+				}
+			);
 
 			if ( is_array( $metadata ) ) {
 				wp_update_attachment_metadata( $attachment_id, $metadata );
@@ -163,19 +167,19 @@ final class Regenerator {
 		$done_count = min( $total, $offset + $processed );
 
 		return array(
-			'page'             => $page,
-			'per_page'         => $per_page,
-			'total'            => $total,
+			'page'              => $page,
+			'per_page'          => $per_page,
+			'total'             => $total,
 			'attachments_total' => $attachment_total,
-			'assets_total'     => $asset_total,
-			'processed'        => $processed,
-			'done_count'       => $done_count,
-			'done'             => $done_count >= $total,
-			'next_page'        => $page + 1,
-			'metadata_updated' => $metadata_updated,
-			'format_generated' => $format_generated,
-			'format_skipped'   => $format_skipped,
-			'errors'           => array_slice( array_unique( $errors ), 0, 20 ),
+			'assets_total'      => $asset_total,
+			'processed'         => $processed,
+			'done_count'        => $done_count,
+			'done'              => $done_count >= $total,
+			'next_page'         => $page + 1,
+			'metadata_updated'  => $metadata_updated,
+			'format_generated'  => $format_generated,
+			'format_skipped'    => $format_skipped,
+			'errors'            => array_slice( array_unique( $errors ), 0, 20 ),
 		);
 	}
 

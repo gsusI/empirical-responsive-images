@@ -51,20 +51,21 @@ final class Settings {
 	 */
 	public function defaults(): array {
 		return array(
-			'collection_enabled'        => true,
-			'cache_guard_enabled'       => true,
-			'picture_enabled'           => true,
-			'asset_processing_enabled'  => true,
-			'webp_enabled'              => true,
-			'avif_enabled'              => true,
-			'cache_ready_runs'          => 1,
-			'sample_rate'               => 1,
-			'rounding_step'             => 32,
-			'min_rendered_width'        => 1,
-			'max_registered_width'      => 2560,
-			'max_observed_sizes'        => 80,
-			'max_observed_pages'        => 1000,
-			'max_payload_images'        => 40,
+			'collection_enabled'       => true,
+			'cache_guard_enabled'      => true,
+			'picture_enabled'          => true,
+			'asset_processing_enabled' => true,
+			'webp_enabled'             => true,
+			'avif_enabled'             => true,
+			'delete_data_on_uninstall' => false,
+			'cache_ready_runs'         => 1,
+			'sample_rate'              => 1,
+			'rounding_step'            => 32,
+			'min_rendered_width'       => 1,
+			'max_registered_width'     => 2560,
+			'max_observed_sizes'       => 80,
+			'max_observed_pages'       => 1000,
+			'max_payload_images'       => 40,
 		);
 	}
 
@@ -94,20 +95,21 @@ final class Settings {
 		$defaults = $this->defaults();
 
 		return array(
-			'collection_enabled'        => ! empty( $input['collection_enabled'] ),
-			'cache_guard_enabled'       => ! empty( $input['cache_guard_enabled'] ),
-			'picture_enabled'           => ! empty( $input['picture_enabled'] ),
-			'asset_processing_enabled'  => ! empty( $input['asset_processing_enabled'] ),
-			'webp_enabled'              => ! empty( $input['webp_enabled'] ),
-			'avif_enabled'              => ! empty( $input['avif_enabled'] ),
-			'cache_ready_runs'          => $this->sanitize_int( $input['cache_ready_runs'] ?? $defaults['cache_ready_runs'], 1, 5 ),
-			'sample_rate'               => $this->sanitize_float( $input['sample_rate'] ?? $defaults['sample_rate'], 0, 1 ),
-			'rounding_step'             => $this->sanitize_int( $input['rounding_step'] ?? $defaults['rounding_step'], 8, 256 ),
-			'min_rendered_width'        => $this->sanitize_int( $input['min_rendered_width'] ?? $defaults['min_rendered_width'], 1, 1200 ),
-			'max_registered_width'      => $this->sanitize_int( $input['max_registered_width'] ?? $defaults['max_registered_width'], 320, 5120 ),
-			'max_observed_sizes'        => $this->sanitize_int( $input['max_observed_sizes'] ?? $defaults['max_observed_sizes'], 8, 300 ),
-			'max_observed_pages'        => $this->sanitize_int( $input['max_observed_pages'] ?? $defaults['max_observed_pages'], 100, 5000 ),
-			'max_payload_images'        => $this->sanitize_int( $input['max_payload_images'] ?? $defaults['max_payload_images'], 1, 120 ),
+			'collection_enabled'       => ! empty( $input['collection_enabled'] ),
+			'cache_guard_enabled'      => ! empty( $input['cache_guard_enabled'] ),
+			'picture_enabled'          => ! empty( $input['picture_enabled'] ),
+			'asset_processing_enabled' => ! empty( $input['asset_processing_enabled'] ),
+			'webp_enabled'             => ! empty( $input['webp_enabled'] ),
+			'avif_enabled'             => ! empty( $input['avif_enabled'] ),
+			'delete_data_on_uninstall' => ! empty( $input['delete_data_on_uninstall'] ),
+			'cache_ready_runs'         => $this->sanitize_int( $input['cache_ready_runs'] ?? $defaults['cache_ready_runs'], 1, 5 ),
+			'sample_rate'              => $this->sanitize_float( $input['sample_rate'] ?? $defaults['sample_rate'], 0, 1 ),
+			'rounding_step'            => $this->sanitize_int( $input['rounding_step'] ?? $defaults['rounding_step'], 8, 256 ),
+			'min_rendered_width'       => $this->sanitize_int( $input['min_rendered_width'] ?? $defaults['min_rendered_width'], 1, 1200 ),
+			'max_registered_width'     => $this->sanitize_int( $input['max_registered_width'] ?? $defaults['max_registered_width'], 320, 5120 ),
+			'max_observed_sizes'       => $this->sanitize_int( $input['max_observed_sizes'] ?? $defaults['max_observed_sizes'], 8, 300 ),
+			'max_observed_pages'       => $this->sanitize_int( $input['max_observed_pages'] ?? $defaults['max_observed_pages'], 100, 5000 ),
+			'max_payload_images'       => $this->sanitize_int( $input['max_payload_images'] ?? $defaults['max_payload_images'], 1, 120 ),
 		);
 	}
 
