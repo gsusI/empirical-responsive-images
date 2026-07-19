@@ -9,6 +9,7 @@
 	var generatedTotal = 0;
 	var processedTotal = 0;
 	var imageTotal = 0;
+	var errorTotal = 0;
 
 	if (!button || !progress || !status || !config.regenerateEndpoint) {
 		return;
@@ -54,13 +55,16 @@
 			imageTotal = Number(result.total || imageTotal || 0);
 			processedTotal = Number(result.done_count || processedTotal || 0);
 			generatedTotal += Number(result.format_generated || 0);
+			errorTotal += Array.isArray(result.errors) ? result.errors.length : 0;
 
 			progress.max = imageTotal || 100;
 			progress.value = imageTotal ? Math.min(processedTotal, imageTotal) : 0;
 			status.textContent = format(config.i18n.running, [processedTotal, imageTotal, generatedTotal]);
 
 			if (result.done) {
-				status.textContent = format(config.i18n.done, [processedTotal, generatedTotal]);
+				status.textContent = errorTotal > 0
+					? format(config.i18n.doneWithErrors || config.i18n.done, [processedTotal, generatedTotal, errorTotal])
+					: format(config.i18n.done, [processedTotal, generatedTotal]);
 				setRunning(false);
 				return;
 			}
@@ -76,6 +80,7 @@
 		generatedTotal = 0;
 		processedTotal = 0;
 		imageTotal = 0;
+		errorTotal = 0;
 		progress.value = 0;
 		status.textContent = config.i18n.starting || 'Starting regeneration...';
 		setRunning(true);

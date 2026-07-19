@@ -18,6 +18,13 @@ final class Format_Generator {
 	public const METADATA_KEY = '_empirical_responsive_images_formats';
 
 	/**
+	 * Whether automatic generation is temporarily suspended.
+	 *
+	 * @var bool
+	 */
+	private $metadata_filter_suspended = false;
+
+	/**
 	 * Settings service.
 	 *
 	 * @var Settings
@@ -41,13 +48,32 @@ final class Format_Generator {
 	 * @return mixed
 	 */
 	public function filter_generate_attachment_metadata( $metadata, int $attachment_id ) {
-		if ( ! is_array( $metadata ) ) {
+		if ( $this->metadata_filter_suspended || ! is_array( $metadata ) ) {
 			return $metadata;
 		}
 
 		$result = $this->generate_for_metadata( $attachment_id, $metadata, false );
 
 		return $result['metadata'];
+	}
+
+	/**
+	 * Run core metadata generation without invoking automatic sidecar generation.
+	 *
+	 * Explicit regeneration uses this to avoid encoding every sidecar twice.
+	 *
+	 * @param callable $callback Metadata callback.
+	 * @return mixed
+	 */
+	public function without_metadata_filter( callable $callback ) {
+		$previous                        = $this->metadata_filter_suspended;
+		$this->metadata_filter_suspended = true;
+
+		try {
+			return $callback();
+		} finally {
+			$this->metadata_filter_suspended = $previous;
+		}
 	}
 
 	/**
@@ -254,10 +280,10 @@ final class Format_Generator {
 			return array();
 		}
 
-		$directory = dirname( $metadata['file'] );
-		$directory = '.' === $directory ? '' : trailingslashit( $directory );
-		$sources   = array( $metadata['file'] );
-		$source_width = absint( $metadata['width'] ?? 0 );
+		$directory     = dirname( $metadata['file'] );
+		$directory     = '.' === $directory ? '' : trailingslashit( $directory );
+		$sources       = array( $metadata['file'] );
+		$source_width  = absint( $metadata['width'] ?? 0 );
 		$source_height = absint( $metadata['height'] ?? 0 );
 
 		if ( ! empty( $metadata['sizes'] ) && is_array( $metadata['sizes'] ) ) {
@@ -323,7 +349,7 @@ final class Format_Generator {
 	 */
 	private function source_can_be_converted( string $source_path ): bool {
 		$type = wp_check_filetype( $source_path );
-		$mime = isset( $type['type'] ) ? (string) $type['type'] : '';
+		$mime = is_string( $type['type'] ) ? $type['type'] : '';
 
 		return in_array( $mime, array( 'image/jpeg', 'image/png', 'image/webp', 'image/avif' ), true );
 	}

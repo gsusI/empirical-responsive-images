@@ -43,7 +43,7 @@ final class Alpha_Compat {
 	 */
 	private static function source_needs_alpha_preservation( string $source_path ): bool {
 		$type = wp_check_filetype( $source_path );
-		$mime = isset( $type['type'] ) ? (string) $type['type'] : '';
+		$mime = is_string( $type['type'] ) ? $type['type'] : '';
 
 		if ( 'image/png' === $mime ) {
 			return self::png_has_alpha_channel( $source_path );
@@ -73,6 +73,7 @@ final class Alpha_Compat {
 	 * @return bool
 	 */
 	private static function png_has_alpha_channel( string $source_path ): bool {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads a bounded local binary header, not a URL.
 		$header = file_get_contents( $source_path, false, null, 0, 33 );
 
 		if ( ! is_string( $header ) || strlen( $header ) < 26 || "\x89PNG\r\n\x1a\n" !== substr( $header, 0, 8 ) ) {
@@ -85,6 +86,7 @@ final class Alpha_Compat {
 			return true;
 		}
 
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads a bounded local binary chunk, not a URL.
 		$chunk_scan = file_get_contents( $source_path, false, null, 0, 1048576 );
 
 		return is_string( $chunk_scan ) && false !== strpos( $chunk_scan, 'tRNS' );
@@ -103,36 +105,22 @@ final class Alpha_Compat {
 
 		try {
 			$image = new \Imagick( $source_path );
+			$image->setIteratorIndex( 0 );
 
-			if ( method_exists( $image, 'setIteratorIndex' ) ) {
-				$image->setIteratorIndex( 0 );
-			}
-
-			if ( method_exists( $image, 'getImageAlphaChannel' ) && ! $image->getImageAlphaChannel() ) {
+			if ( ! $image->getImageAlphaChannel() ) {
 				$image->clear();
 				$image->destroy();
 
 				return false;
 			}
 
-			if ( method_exists( $image, 'getImageChannelExtrema' ) ) {
-				$extrema = $image->getImageChannelExtrema( \Imagick::CHANNEL_ALPHA );
-				$image->clear();
-				$image->destroy();
-
-				if ( is_array( $extrema ) && isset( $extrema['minima'], $extrema['maxima'] ) ) {
-					return (int) $extrema['minima'] < (int) $extrema['maxima'];
-				}
-
-				return true;
-			}
-
+			$extrema = $image->getImageChannelExtrema( \Imagick::CHANNEL_ALPHA );
 			$image->clear();
 			$image->destroy();
+
+			return (int) $extrema['minima'] < (int) $extrema['maxima'];
 		} catch ( \Throwable $exception ) {
 			return false;
 		}
-
-		return true;
 	}
 }

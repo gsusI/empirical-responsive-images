@@ -9,9 +9,16 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
+$empirical_responsive_images_settings = get_option( 'empirical_responsive_images_settings', array() );
+
+if ( ! is_array( $empirical_responsive_images_settings ) || empty( $empirical_responsive_images_settings['delete_data_on_uninstall'] ) ) {
+	return;
+}
+
 delete_option( 'empirical_responsive_images_settings' );
 delete_option( 'empirical_responsive_images_observations' );
 delete_option( 'empirical_responsive_images_version' );
+delete_option( 'empirical_responsive_images_observations_lock' );
 
 $empirical_responsive_images_uploads    = wp_get_upload_dir();
 $empirical_responsive_images_target_dir = trailingslashit( $empirical_responsive_images_uploads['basedir'] ) . 'empirical-responsive-images';
