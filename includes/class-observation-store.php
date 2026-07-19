@@ -15,7 +15,16 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Stores aggregate rendered image slot observations.
  */
 final class Observation_Store {
-	public const OPTION_NAME = 'empirical_responsive_images_observations';
+	public const OPTION_NAME        = 'empirical_responsive_images_observations';
+	private const WRITE_LOCK_OPTION = 'empirical_responsive_images_observations_lock';
+	private const WRITE_LOCK_TTL    = 15;
+
+	/**
+	 * Token owned by the current request's write lock.
+	 *
+	 * @var string
+	 */
+	private $write_lock_token = '';
 
 	/**
 	 * Asset manager.
@@ -106,27 +115,11 @@ final class Observation_Store {
 		}
 
 		$path         = wp_parse_url( $url, PHP_URL_PATH );
-		$query        = wp_parse_url( $url, PHP_URL_QUERY );
 		$path         = is_string( $path ) && '' !== $path ? $path : '/';
+		$path         = preg_replace( '#/+#', '/', $path );
+		$path         = is_string( $path ) ? $path : '/';
 		$trimmed_path = trim( $path, '/' );
 		$path         = '' === $trimmed_path ? '/' : '/' . $trimmed_path . '/';
-
-		if ( is_string( $query ) && '' !== $query ) {
-			parse_str( $query, $query_args );
-			$query_args = array_filter(
-				$query_args,
-				static function ( string $key ): bool {
-					return ! preg_match( '/^(utm_|fbclid$|gclid$|gbraid$|wbraid$)/', $key );
-				},
-				ARRAY_FILTER_USE_KEY
-			);
-			ksort( $query_args );
-			$query = http_build_query( $query_args, '', '&', PHP_QUERY_RFC3986 );
-
-			if ( '' !== $query ) {
-				$path .= '?' . $query;
-			}
-		}
 
 		return sanitize_text_field( $path );
 	}
@@ -267,7 +260,7 @@ final class Observation_Store {
 		usort(
 			$candidates,
 			static function ( array $a, array $b ): int {
-				return absint( $b['count'] ?? 0 ) <=> absint( $a['count'] ?? 0 );
+				return absint( $b['count'] ) <=> absint( $a['count'] );
 			}
 		);
 
@@ -318,6 +311,28 @@ final class Observation_Store {
 	 * @return array
 	 */
 	public function record_payload( array $payload, Settings $settings ): array {
+		if ( ! $this->acquire_write_lock() ) {
+			return array(
+				'accepted' => 0,
+				'busy'     => true,
+			);
+		}
+
+		try {
+			return $this->record_payload_unlocked( $payload, $settings );
+		} finally {
+			$this->release_write_lock();
+		}
+	}
+
+	/**
+	 * Store a payload while holding the write lock.
+	 *
+	 * @param array    $payload  REST payload.
+	 * @param Settings $settings Settings service.
+	 * @return array
+	 */
+	private function record_payload_unlocked( array $payload, Settings $settings ): array {
 		$data          = $this->get_data();
 		$images        = isset( $payload['images'] ) && is_array( $payload['images'] ) ? $payload['images'] : array();
 		$max_images    = $settings->get_int( 'max_payload_images' );
@@ -341,10 +356,10 @@ final class Observation_Store {
 				continue;
 			}
 
-			$key       = 'w' . (string) $observation['width'];
-			$is_new    = empty( $data['sizes'][ $key ] ) || ! is_array( $data['sizes'][ $key ] );
+			$key                             = 'w' . (string) $observation['width'];
+			$is_new                          = empty( $data['sizes'][ $key ] ) || ! is_array( $data['sizes'][ $key ] );
 			$page_snapshot['widths'][ $key ] = $observation['width'];
-			$asset_key = (string) ( $observation['asset_key'] ?? '' );
+			$asset_key                       = (string) ( $observation['asset_key'] ?? '' );
 
 			if ( $is_new ) {
 				$page_snapshot['new_widths'][ $key ] = $observation['width'];
@@ -365,21 +380,21 @@ final class Observation_Store {
 			$data['sizes'][ $key ] = $this->merge_observation( $data['sizes'][ $key ], $observation, $page_key );
 
 			if ( '' !== $asset_key ) {
-				$data['assets'][ $asset_key ] = $this->merge_asset_observation( isset( $data['assets'][ $asset_key ] ) && is_array( $data['assets'][ $asset_key ] ) ? $data['assets'][ $asset_key ] : array(), $observation, $page_key );
+				$data['assets'][ $asset_key ]    = $this->merge_asset_observation( isset( $data['assets'][ $asset_key ] ) && is_array( $data['assets'][ $asset_key ] ) ? $data['assets'][ $asset_key ] : array(), $observation, $page_key );
 				$data['sizes'][ $key ]['assets'] = $this->increment_limited_map( $data['sizes'][ $key ]['assets'] ?? array(), $asset_key, 24 );
 			}
 
 			++$seen;
 		}
 
-		$data['updated_at']              = time();
-		$data['totals']['payloads']      = absint( $data['totals']['payloads'] ?? 0 ) + 1;
-		$data['totals']['observations']  = absint( $data['totals']['observations'] ?? 0 ) + $seen;
-		$data['sizes']                   = $this->trim_sizes( $data['sizes'], $settings->get_int( 'max_observed_sizes' ) );
-		$data['assets']                  = $this->trim_assets( is_array( $data['assets'] ?? null ) ? $data['assets'] : array(), $settings->get_int( 'max_observed_sizes' ) * 4 );
-		$page_update                     = $this->update_page_cache_state( $data, $page_key, $page_url, $seen, $page_snapshot, $settings );
-		$data                            = $page_update['data'];
-		$data['pages']                   = $this->trim_pages( $data['pages'], $settings->get_int( 'max_observed_pages' ) );
+		$data['updated_at']             = time();
+		$data['totals']['payloads']     = absint( $data['totals']['payloads'] ?? 0 ) + 1;
+		$data['totals']['observations'] = absint( $data['totals']['observations'] ?? 0 ) + $seen;
+		$data['sizes']                  = $this->trim_sizes( $data['sizes'], $settings->get_int( 'max_observed_sizes' ) );
+		$data['assets']                 = $this->trim_assets( is_array( $data['assets'] ?? null ) ? $data['assets'] : array(), $settings->get_int( 'max_observed_sizes' ) * 4 );
+		$page_update                    = $this->update_page_cache_state( $data, $page_key, $page_url, $seen, $page_snapshot, $settings );
+		$data                           = $page_update['data'];
+		$data['pages']                  = $this->trim_pages( $data['pages'], $settings->get_int( 'max_observed_pages' ) );
 
 		update_option( self::OPTION_NAME, $data, false );
 
@@ -404,17 +419,17 @@ final class Observation_Store {
 	 */
 	private function new_size_entry( int $width, int $height ): array {
 		return array(
-			'width'      => $width,
-			'min_height' => $height,
-			'max_height' => $height,
-			'count'      => 0,
-			'first_seen' => time(),
-			'last_seen'  => time(),
-			'dprs'       => array(),
-			'viewports'  => array(),
-			'pages'      => array(),
+			'width'       => $width,
+			'min_height'  => $height,
+			'max_height'  => $height,
+			'count'       => 0,
+			'first_seen'  => time(),
+			'last_seen'   => time(),
+			'dprs'        => array(),
+			'viewports'   => array(),
+			'pages'       => array(),
 			'attachments' => array(),
-			'assets'     => array(),
+			'assets'      => array(),
 		);
 	}
 
@@ -483,12 +498,12 @@ final class Observation_Store {
 		$entry['last_seen']     = $now;
 		$entry['natural_width'] = max( absint( $entry['natural_width'] ?? 0 ), absint( $observation['natural_width'] ?? 0 ) );
 
-		if ( '' !== $target_key && 'w0' !== $target_key ) {
+		if ( 'w0' !== $target_key ) {
 			$entry['target_widths'][ $target_key ] = absint( $observation['width'] ?? 0 );
 		}
 
 		if ( $viewport_width > 0 && $rendered_width > 0 ) {
-			$current_slot = absint( $entry['slot_widths'][ (string) $viewport_width ] ?? 0 );
+			$current_slot                                     = absint( $entry['slot_widths'][ (string) $viewport_width ] ?? 0 );
 			$entry['slot_widths'][ (string) $viewport_width ] = max( $current_slot, $rendered_width );
 			ksort( $entry['slot_widths'] );
 			$entry['slot_widths'] = array_slice( $entry['slot_widths'], 0, 16, true );
@@ -530,17 +545,17 @@ final class Observation_Store {
 		}
 
 		return array(
-			'width'          => $width,
-			'height'         => $height,
+			'width'           => $width,
+			'height'          => $height,
 			'rendered_width'  => max( 1, (int) round( $rendered_width ) ),
 			'rendered_height' => max( 1, (int) round( $rendered_height ) ),
-			'dpr'            => round( max( 1, min( 4, $dpr ) ), 2 ),
-			'viewport_width' => absint( $viewport['width'] ?? 0 ),
-			'attachment_id'  => absint( $image['attachment_id'] ?? 0 ),
-			'natural_width'  => absint( $image['natural_width'] ?? 0 ),
-			'srcset_widths'  => $this->sanitize_srcset_widths( $image['srcset_widths'] ?? array() ),
-			'source_url'     => $this->source_url_from_observation( $image ),
-			'asset_key'      => $settings->is_asset_processing_enabled() ? $this->asset_key_from_observation( $image ) : '',
+			'dpr'             => round( max( 1, min( 4, $dpr ) ), 2 ),
+			'viewport_width'  => absint( $viewport['width'] ?? 0 ),
+			'attachment_id'   => absint( $image['attachment_id'] ?? 0 ),
+			'natural_width'   => absint( $image['natural_width'] ?? 0 ),
+			'srcset_widths'   => $this->sanitize_srcset_widths( $image['srcset_widths'] ?? array() ),
+			'source_url'      => $this->source_url_from_observation( $image ),
+			'asset_key'       => $settings->is_asset_processing_enabled() ? $this->asset_key_from_observation( $image ) : '',
 		);
 	}
 
@@ -551,10 +566,10 @@ final class Observation_Store {
 	 */
 	private function new_page_snapshot(): array {
 		return array(
-			'managed_images'          => 0,
-			'widths'                  => array(),
-			'new_widths'              => array(),
-			'missing_srcset_widths'   => array(),
+			'managed_images'        => 0,
+			'widths'                => array(),
+			'new_widths'            => array(),
+			'missing_srcset_widths' => array(),
 		);
 	}
 
@@ -579,7 +594,8 @@ final class Observation_Store {
 			);
 		}
 
-		$page            = isset( $data['pages'][ $page_key ] ) && is_array( $data['pages'][ $page_key ] ) ? $data['pages'][ $page_key ] : $this->new_page_entry();
+		$had_page        = isset( $data['pages'][ $page_key ] ) && is_array( $data['pages'][ $page_key ] );
+		$page            = $had_page ? $data['pages'][ $page_key ] : $this->new_page_entry();
 		$previous_status = (string) ( $page['status'] ?? 'blocked' );
 		$has_new_widths  = ! empty( $snapshot['new_widths'] );
 		$has_missing     = ! empty( $snapshot['missing_srcset_widths'] );
@@ -593,11 +609,11 @@ final class Observation_Store {
 			$reason = 'no_images';
 		}
 
-		$page['last_seen']      = time();
-		$page['last_reason']    = $reason;
-		$page['last_image_count'] = $seen;
-		$page['managed_images'] = absint( $snapshot['managed_images'] ?? 0 );
-		$page['widths']         = $this->merge_width_counts( is_array( $page['widths'] ?? null ) ? $page['widths'] : array(), $snapshot['widths'] );
+		$page['last_seen']             = time();
+		$page['last_reason']           = $reason;
+		$page['last_image_count']      = $seen;
+		$page['managed_images']        = absint( $snapshot['managed_images'] ?? 0 );
+		$page['widths']                = $this->merge_width_counts( is_array( $page['widths'] ?? null ) ? $page['widths'] : array(), $snapshot['widths'] );
 		$page['missing_srcset_widths'] = array_values( $snapshot['missing_srcset_widths'] );
 
 		if ( $has_new_widths ) {
@@ -609,13 +625,68 @@ final class Observation_Store {
 		}
 
 		$data['pages'][ $page_key ] = $page;
+		$status_changed             = ! $had_page || $previous_status !== $page['status'];
 
 		return array(
 			'data'           => $data,
 			'cache_ready'    => 'ready' === $page['status'],
-			'status_changed' => $previous_status !== $page['status'],
-			'purge_url'      => $previous_status !== $page['status'] ? $page_url : '',
+			'status_changed' => $status_changed,
+			'purge_url'      => $status_changed ? $page_url : '',
 		);
+	}
+
+	/**
+	 * Acquire a short-lived cross-request write lock.
+	 *
+	 * WordPress option updates are read/modify/write operations. Serializing
+	 * beacon writes prevents concurrent requests from silently losing data.
+	 *
+	 * @return bool
+	 */
+	private function acquire_write_lock(): bool {
+		$now   = time();
+		$token = wp_generate_uuid4();
+		$lock  = array(
+			'token'      => $token,
+			'created_at' => $now,
+		);
+
+		if ( add_option( self::WRITE_LOCK_OPTION, $lock, '', false ) ) {
+			$this->write_lock_token = $token;
+			return true;
+		}
+
+		$current    = get_option( self::WRITE_LOCK_OPTION, array() );
+		$created_at = is_array( $current ) ? absint( $current['created_at'] ?? 0 ) : absint( $current );
+
+		if ( $created_at > 0 && $created_at > $now - self::WRITE_LOCK_TTL ) {
+			return false;
+		}
+
+		delete_option( self::WRITE_LOCK_OPTION );
+
+		if ( ! add_option( self::WRITE_LOCK_OPTION, $lock, '', false ) ) {
+			return false;
+		}
+
+		$this->write_lock_token = $token;
+
+		return true;
+	}
+
+	/**
+	 * Release only the lock owned by this request.
+	 *
+	 * @return void
+	 */
+	private function release_write_lock(): void {
+		$current = get_option( self::WRITE_LOCK_OPTION, array() );
+
+		if ( is_array( $current ) && hash_equals( $this->write_lock_token, (string) ( $current['token'] ?? '' ) ) ) {
+			delete_option( self::WRITE_LOCK_OPTION );
+		}
+
+		$this->write_lock_token = '';
 	}
 
 	/**
@@ -726,7 +797,7 @@ final class Observation_Store {
 		$sanitized = array();
 
 		foreach ( $widths as $viewport => $slot_width ) {
-			$viewport  = absint( $viewport );
+			$viewport   = absint( $viewport );
 			$slot_width = absint( $slot_width );
 
 			if ( $viewport > 0 && $slot_width > 0 ) {
@@ -867,18 +938,5 @@ final class Observation_Store {
 		);
 
 		return array_slice( $pages, 0, max( 100, $limit ), true );
-	}
-
-	/**
-	 * Sanitize page URL down to path only.
-	 *
-	 * @param mixed $page_url Raw page URL.
-	 * @return string
-	 */
-	private function sanitize_page_path( $page_url ): string {
-		$page_url = is_string( $page_url ) ? esc_url_raw( $page_url ) : '';
-		$path     = '' !== $page_url ? wp_parse_url( $page_url, PHP_URL_PATH ) : '';
-
-		return is_string( $path ) ? sanitize_text_field( $path ) : '';
 	}
 }

@@ -64,9 +64,12 @@ final class Cache_Compat {
 			wp_cache_post_change( 0 );
 		}
 
+		if ( function_exists( 'sg_cachepress_purge_cache' ) ) {
+			sg_cachepress_purge_cache( $url );
+		}
+
 		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party cache hooks must use their documented names.
 		do_action( 'litespeed_purge_url', $url );
-		do_action( 'sg_cachepress_purge_cache' );
 		do_action( 'breeze_clear_all_cache' );
 		// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		do_action( 'empirical_responsive_images_purge_url', $url );
@@ -90,13 +93,16 @@ final class Cache_Compat {
 			wp_cache_clear_cache();
 		}
 
-		if ( class_exists( 'autoptimizeCache' ) && method_exists( 'autoptimizeCache', 'clearall' ) ) {
-			\autoptimizeCache::clearall();
+		if ( is_callable( array( 'autoptimizeCache', 'clearall' ) ) ) {
+			call_user_func( array( 'autoptimizeCache', 'clearall' ) );
+		}
+
+		if ( function_exists( 'sg_cachepress_purge_everything' ) ) {
+			sg_cachepress_purge_everything();
 		}
 
 		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party cache hooks must use their documented names.
 		do_action( 'litespeed_purge_all' );
-		do_action( 'sg_cachepress_purge_cache' );
 		do_action( 'breeze_clear_all_cache' );
 		// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		do_action( 'empirical_responsive_images_purge_all' );
