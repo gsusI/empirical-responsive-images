@@ -49,11 +49,25 @@ lint_php() {
 	docker run --rm \
 		--volume "${ROOT}:/plugin:ro" \
 		php:8.3-cli \
-		sh -lc "find /plugin -name '*.php' ! -path '/plugin/build/*' ! -path '/plugin/.wporg-build/*' -print0 | xargs -0 -n1 php -l"
+		sh -lc "find /plugin -name '*.php' ! -path '/plugin/build/*' ! -path '/plugin/.wporg-build/*' ! -path '/plugin/.phpstan-cache/*' ! -path '/plugin/vendor/*' -print0 | xargs -0 -n1 php -l"
+}
+
+run_quality_checks() {
+	echo "==> Local coding standards, static analysis, and tests"
+	command -v composer >/dev/null 2>&1 || {
+		echo "Composer is required for the full release check." >&2
+		return 1
+	}
+	composer --working-dir="${ROOT}" install --no-interaction --prefer-dist
+	composer --working-dir="${ROOT}" audit --no-interaction
+	composer --working-dir="${ROOT}" check
+	"${ROOT}/tools/check-version-sync.sh"
 }
 
 build_zip() {
 	echo "==> Build release ZIP in Docker"
+	"${ROOT}/tools/check-version-sync.sh"
+	"${ROOT}/tools/check-review-readiness.sh"
 	ensure_dirs
 	build_package_image
 	rm -f "${ZIP_PATH}"
@@ -67,6 +81,7 @@ build_zip() {
 			-x '${SLUG}/.github' '${SLUG}/.github/*' \
 			-x '${SLUG}/.wordpress-org' '${SLUG}/.wordpress-org/*' \
 			-x '${SLUG}/.wporg-build' '${SLUG}/.wporg-build/*' \
+			-x '${SLUG}/.phpstan-cache' '${SLUG}/.phpstan-cache/*' '${SLUG}/.phpunit.result.cache' \
 			-x '${SLUG}/build' '${SLUG}/build/*' \
 			-x '${SLUG}/tools' '${SLUG}/tools/*' \
 			-x '${SLUG}/vendor' '${SLUG}/vendor/*' \
@@ -86,8 +101,9 @@ build_zip() {
 			-x '${SLUG}/*.orig' '${SLUG}/**/*.orig' '${SLUG}/*.swp' '${SLUG}/**/*.swp' \
 			-x '${SLUG}/.DS_Store' '${SLUG}/**/.DS_Store' \
 			-x '${SLUG}/.gitignore' '${SLUG}/.distignore' '${SLUG}/phpcs.xml.dist' \
+			-x '${SLUG}/phpstan.neon.dist' '${SLUG}/phpunit.xml.dist' '${SLUG}/composer.json' '${SLUG}/composer.lock' '${SLUG}/justfile' \
 			-x '${SLUG}/*.log' '${SLUG}/**/*.log' '${SLUG}/*.zip' '${SLUG}/**/*.zip' && \
-			zip -q '/out/${SLUG}-${VERSION}.zip' '${SLUG}/readme.txt'"
+			zip -q '/out/${SLUG}-${VERSION}.zip' '${SLUG}/readme.txt' '${SLUG}/changelog.txt'"
 	docker run --rm \
 		--volume "${BUILD_DIR}:/out:ro" \
 		"${PACKAGE_IMAGE}" \
@@ -134,6 +150,7 @@ services:
     volumes:
       - wp_data:/var/www/html
       - ${CHECK_PLUGIN_ROOT}:/var/www/html/wp-content/plugins/${SLUG}:ro
+      - ${ROOT}/tools:/review-tools:ro
 
 volumes:
   wp_data:
@@ -177,6 +194,27 @@ install_wordpress() {
 	return 1
 }
 
+configure_debug_mode() {
+	wp_cli config set WP_DEBUG true --raw
+	wp_cli config set WP_DEBUG_LOG true --raw
+	wp_cli config set WP_DEBUG_DISPLAY false --raw
+	wp_cli config set SCRIPT_DEBUG true --raw
+}
+
+run_authorization_smoke() {
+	echo "==> Authorization and observer smoke"
+	wp_cli eval "if ( file_exists( WP_CONTENT_DIR . '/debug.log' ) ) { unlink( WP_CONTENT_DIR . '/debug.log' ); }"
+	wp_cli eval-file /review-tools/wporg-smoke.php | tee "${BUILD_DIR}/authorization-smoke.txt"
+
+	if ! docker_compose exec -T wordpress test ! -s /var/www/html/wp-content/debug.log; then
+		docker_compose exec -T wordpress cat /var/www/html/wp-content/debug.log
+		echo "WP_DEBUG log is not empty after smoke." >&2
+		return 1
+	fi
+
+	echo "WP_DEBUG log is empty." | tee "${BUILD_DIR}/debug-log.txt"
+}
+
 run_wp_check() {
 	echo "==> WordPress Plugin Check in Docker"
 	ensure_dirs
@@ -192,6 +230,7 @@ run_wp_check() {
 
 	trap 'docker_compose down -v --remove-orphans >/dev/null 2>&1 || true' EXIT
 	install_wordpress
+	configure_debug_mode
 
 	wp_cli core version | tee "${BUILD_DIR}/wordpress-version.txt"
 	wp_cli plugin install plugin-check --activate
@@ -199,7 +238,7 @@ run_wp_check() {
 	wp_cli plugin list --fields=name,status,version | tee "${BUILD_DIR}/plugin-list.txt"
 
 	set +e
-	docker_compose run --rm cli wp plugin check "${SLUG}" --allow-root > "${BUILD_DIR}/plugin-check.txt" 2>&1
+	docker_compose run --rm cli wp plugin check "${SLUG}" --mode=new --include-experimental --format=strict-table --allow-root > "${BUILD_DIR}/plugin-check.txt" 2>&1
 	status=$?
 	set -e
 
@@ -207,6 +246,8 @@ run_wp_check() {
 	if [ "${status}" -ne 0 ]; then
 		return "${status}"
 	fi
+
+	run_authorization_smoke
 
 	echo "Readme Tested up to: ${TESTED_UP_TO}" | tee "${BUILD_DIR}/tested-up-to.txt"
 }
@@ -232,6 +273,7 @@ build_svn_tree() {
 cmd="${1:-all}"
 case "${cmd}" in
 	all)
+		run_quality_checks
 		lint_php
 		build_zip
 		run_wp_check

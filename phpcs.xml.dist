@@ -5,8 +5,13 @@
 	<file>.</file>
 	<exclude-pattern>vendor/*</exclude-pattern>
 	<exclude-pattern>node_modules/*</exclude-pattern>
+	<exclude-pattern>build/*</exclude-pattern>
+	<exclude-pattern>.wporg-build/*</exclude-pattern>
+	<exclude-pattern>.phpstan-cache/*</exclude-pattern>
 	<exclude-pattern>assets/*</exclude-pattern>
+	<exclude-pattern>tests/*</exclude-pattern>
 	<rule ref="WordPress"/>
-	<config name="minimum_supported_wp_version" value="6.4"/>
+	<rule ref="PHPCompatibilityWP"/>
+	<config name="minimum_supported_wp_version" value="6.9"/>
 	<config name="testVersion" value="7.4-"/>
 </ruleset>

@@ -1,10 +1,10 @@
 === Empirical Responsive Images ===
-Contributors: jesusiniesta
+Contributors: jesusinica
 Tags: images, responsive images, thumbnails, webp, avif
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.1.8
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,7 @@ Empirical Responsive Images helps WordPress sites discover the image widths they
 
 Features:
 
-* Front-end observer measures rendered image width, height, viewport width, DPR, attachment ID, and local asset source URL.
+* Administrator-only front-end observer measures rendered image width, height, viewport width, DPR, attachment ID, and local asset source URL.
 * Observations are stored as aggregate size data in WordPress options.
 * Observed width candidates are registered through `add_image_size()`.
 * Admin batch tool regenerates image thumbnails and observed local asset variants.
@@ -28,7 +28,9 @@ Features:
 
 == Privacy ==
 
-The public observer stores aggregate rendered image data only. It does not persist raw IP addresses. A salted transient key is used only for short-lived rate limiting.
+The observer runs only for logged-in users who can manage site options. Requests require WordPress REST authentication and a valid REST nonce. It stores aggregate rendered image data and canonical page paths only; query strings and raw IP addresses are not persisted.
+
+By default, settings, observations, and generated asset variants are retained when the plugin is uninstalled. Site administrators can explicitly enable deletion under Tools > Responsive Images before uninstalling.
 
 == Cache compatibility ==
 
@@ -43,13 +45,13 @@ Before a page is confirmed stable, the plugin sends WordPress and HTTP cache byp
 
 It also disables LiteSpeed page optimization and lazy-loading constants during those warming requests so the measured image slots match the real rendered layout.
 
-The observer script is marked with optimizer bypass attributes including `data-cfasync="false"`, `data-no-optimize="1"`, `data-no-defer="1"`, `data-no-minify="1"`, and `data-pagespeed-no-defer="1"`. Its REST configuration is also duplicated into `data-eri-*` attributes so it can still run when an optimizer delays inline scripts.
+The observer script is marked with optimizer bypass attributes including `data-cfasync="false"`, `data-no-optimize="1"`, `data-no-defer="1"`, `data-no-minify="1"`, and `data-pagespeed-no-defer="1"`. Its REST configuration is also duplicated into `data-empirical-responsive-images-*` attributes so it can still run when an optimizer delays inline scripts.
 
 == Installation ==
 
 1. Upload `empirical-responsive-images` to `/wp-content/plugins/`.
 2. Activate the plugin.
-3. Visit the front end on representative desktop, tablet, and mobile widths.
+3. While logged in as an administrator, visit the front end on representative desktop, tablet, and mobile widths.
 4. Go to Tools > Responsive Images.
 5. Review observed sizes and run thumbnail regeneration.
 
@@ -85,7 +87,32 @@ Responsive `srcset` selection is width-driven. The plugin records height ranges 
 
 Yes. Manageable local `wp-content` image assets are observed, resized into `wp-content/uploads/empirical-responsive-images/assets/`, and rewritten with empirical `srcset` and `sizes` output.
 
+= Does normal page rendering create image files? =
+
+No. Front-end rendering only reads variants that already exist. File generation happens during uploads or explicit regeneration from the admin screen or WP-CLI.
+
+= What happens to data when I uninstall the plugin? =
+
+Data is retained by default to prevent accidental loss. Enable the uninstall cleanup setting first if you want uninstalling to remove settings, observations, and generated local asset variants.
+
+= Who can submit front-end observations? =
+
+Only logged-in users with the `manage_options` capability. The observer uses WordPress cookie authentication and a REST nonce; anonymous visitors cannot submit or modify observation data.
+
 == Changelog ==
+
+= 0.2.0 =
+* Require administrator capability and REST nonce verification for every observation write.
+* Use SiteGround Speed Optimizer's documented public purge functions instead of an unregistered action name.
+* Use the full plugin prefix for generated image-size names and observer data attributes.
+* Keep front-end rendering read-only; missing local asset variants now require explicit regeneration.
+* Prevent duplicate sidecar encoding during forced attachment regeneration.
+* Serialize concurrent observation writes to prevent lost aggregate data.
+* Purge a page cache when its first observation creates a blocked readiness record.
+* Reject oversized or off-site observation payloads and omit query strings from stored page keys.
+* Support custom WordPress content and upload directory mappings for local assets.
+* Preserve plugin data on uninstall unless an administrator explicitly opts into deletion.
+* Add PHPUnit, PHPCS, PHP compatibility, PHPStan, version-sync, CI, and package quality gates.
 
 = 0.1.8 =
 * Use WordPress's template enhancement output buffer for full-page asset processing.
