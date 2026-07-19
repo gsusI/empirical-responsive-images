@@ -15,9 +15,8 @@ if ( ! defined( 'ABSPATH' ) ) {
  * REST routes for observations and admin actions.
  */
 final class REST_Controller {
-	private const NAMESPACE = 'empirical-responsive-images/v1';
-	private const RATE_LIMIT_BUCKETS = 64;
-	private const RATE_LIMIT_PER_MINUTE = 60;
+	private const NAMESPACE         = 'empirical-responsive-images/v1';
+	private const MAX_REQUEST_BYTES = 131072;
 
 	/**
 	 * Settings.
@@ -74,7 +73,22 @@ final class REST_Controller {
 			array(
 				'methods'             => \WP_REST_Server::CREATABLE,
 				'callback'            => array( $this, 'record_observations' ),
-				'permission_callback' => '__return_true',
+				'permission_callback' => array( $this, 'can_manage' ),
+				'args'                => array(
+					'page_url' => array(
+						'type'     => 'string',
+						'format'   => 'uri',
+						'required' => true,
+					),
+					'viewport' => array(
+						'type'     => 'object',
+						'required' => true,
+					),
+					'images'   => array(
+						'type'     => 'array',
+						'required' => true,
+					),
+				),
 			)
 		);
 
@@ -126,7 +140,7 @@ final class REST_Controller {
 	}
 
 	/**
-	 * Record public observations.
+	 * Record administrator-authorized observations.
 	 *
 	 * @param \WP_REST_Request $request Request.
 	 * @return \WP_REST_Response|\WP_Error
@@ -141,11 +155,11 @@ final class REST_Controller {
 			);
 		}
 
-		if ( ! $this->allow_public_observation_request() ) {
+		if ( strlen( $request->get_body() ) > self::MAX_REQUEST_BYTES ) {
 			return new \WP_Error(
-				'empirical_responsive_images_rate_limited',
-				__( 'Too many image observation requests.', 'empirical-responsive-images' ),
-				array( 'status' => 429 )
+				'empirical_responsive_images_payload_too_large',
+				__( 'Image observation payload is too large.', 'empirical-responsive-images' ),
+				array( 'status' => 413 )
 			);
 		}
 
@@ -155,13 +169,56 @@ final class REST_Controller {
 			$params = array();
 		}
 
+		if ( empty( $params['page_url'] ) || ! is_string( $params['page_url'] ) || ! $this->is_local_page_url( $params['page_url'] ) ) {
+			return new \WP_Error(
+				'empirical_responsive_images_invalid_page_url',
+				__( 'Image observations must come from this site.', 'empirical-responsive-images' ),
+				array( 'status' => 400 )
+			);
+		}
+
 		$result = $this->store->record_payload( $params, $this->settings );
+
+		if ( ! empty( $result['busy'] ) ) {
+			return new \WP_Error(
+				'empirical_responsive_images_store_busy',
+				__( 'Image observation storage is busy. Retry shortly.', 'empirical-responsive-images' ),
+				array( 'status' => 503 )
+			);
+		}
 
 		if ( ! empty( $result['status_changed'] ) && ! empty( $result['purge_url'] ) && is_string( $result['purge_url'] ) ) {
 			Cache_Compat::purge_url( $result['purge_url'] );
 		}
 
 		return rest_ensure_response( $result );
+	}
+
+	/**
+	 * Check whether a reported page URL belongs to this WordPress site.
+	 *
+	 * @param string $url Reported page URL.
+	 * @return bool
+	 */
+	private function is_local_page_url( string $url ): bool {
+		$scheme = wp_parse_url( $url, PHP_URL_SCHEME );
+		$host   = wp_parse_url( $url, PHP_URL_HOST );
+
+		if ( ! is_string( $scheme ) || ! in_array( strtolower( $scheme ), array( 'http', 'https' ), true ) || ! is_string( $host ) || '' === $host ) {
+			return false;
+		}
+
+		$allowed_hosts = array();
+
+		foreach ( array( home_url( '/' ), site_url( '/' ) ) as $site_url ) {
+			$site_host = wp_parse_url( $site_url, PHP_URL_HOST );
+
+			if ( is_string( $site_host ) && '' !== $site_host ) {
+				$allowed_hosts[] = strtolower( $site_host );
+			}
+		}
+
+		return in_array( strtolower( $host ), array_unique( $allowed_hosts ), true );
 	}
 
 	/**
@@ -193,26 +250,5 @@ final class REST_Controller {
 				'formats'      => $this->format_generator->get_support_status(),
 			)
 		);
-	}
-
-	/**
-	 * Basic public write rate limit with bounded transient cardinality.
-	 *
-	 * @return bool
-	 */
-	private function allow_public_observation_request(): bool {
-		$ip_address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
-		$client_hash = hash_hmac( 'sha256', $ip_address, wp_salt( 'nonce' ) );
-		$bucket      = hexdec( substr( $client_hash, 0, 4 ) ) % self::RATE_LIMIT_BUCKETS;
-		$key         = 'eri_obs_rate_' . $bucket;
-		$count      = absint( get_transient( $key ) );
-
-		if ( $count >= self::RATE_LIMIT_PER_MINUTE ) {
-			return false;
-		}
-
-		set_transient( $key, $count + 1, MINUTE_IN_SECONDS );
-
-		return true;
 	}
 }

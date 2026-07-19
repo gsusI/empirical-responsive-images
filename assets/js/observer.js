@@ -5,6 +5,7 @@
 	var dataset = script && script.dataset ? script.dataset : {};
 	var config = window.EmpiricalResponsiveImagesObserver || {};
 	var endpoint = config.endpoint || '';
+	var nonce = config.nonce || '';
 	var sampleRate = Number(config.sampleRate || 0);
 	var minRenderedWidth = Number(config.minRenderedWidth || 80);
 	var maxImagesPerPayload = Number(config.maxImagesPerPayload || 40);
@@ -14,12 +15,13 @@
 	var resizeObserver = null;
 	var watchedImages = new WeakSet();
 
-	endpoint = endpoint || dataset.eriEndpoint || '';
-	sampleRate = Number(config.sampleRate || dataset.eriSampleRate || 0);
-	minRenderedWidth = Number(config.minRenderedWidth || dataset.eriMinRenderedWidth || 80);
-	maxImagesPerPayload = Number(config.maxImagesPerPayload || dataset.eriMaxImages || 40);
+	endpoint = endpoint || dataset.empiricalResponsiveImagesEndpoint || '';
+	nonce = nonce || dataset.empiricalResponsiveImagesNonce || '';
+	sampleRate = Number(config.sampleRate || dataset.empiricalResponsiveImagesSampleRate || 0);
+	minRenderedWidth = Number(config.minRenderedWidth || dataset.empiricalResponsiveImagesMinRenderedWidth || 80);
+	maxImagesPerPayload = Number(config.maxImagesPerPayload || dataset.empiricalResponsiveImagesMaxImages || 40);
 
-	if (!endpoint || sampleRate <= 0 || Math.random() > sampleRate) {
+	if (!endpoint || !nonce || sampleRate <= 0 || Math.random() > sampleRate) {
 		return;
 	}
 
@@ -129,7 +131,7 @@
 		}
 
 		var payload = JSON.stringify({
-			page_url: window.location.href,
+			page_url: window.location.origin + window.location.pathname,
 			viewport: {
 				width: window.innerWidth || 0,
 				height: window.innerHeight || 0,
@@ -137,20 +139,27 @@
 			},
 			images: images
 		});
-		var blob = new Blob([payload], { type: 'application/json' });
-
-		if (navigator.sendBeacon && navigator.sendBeacon(endpoint, blob)) {
-			return;
-		}
-
 		window.fetch(endpoint, {
 			method: 'POST',
 			body: payload,
 			headers: {
-				'Content-Type': 'application/json'
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': nonce
 			},
 			credentials: 'same-origin',
 			keepalive: true
+		}).then(function (response) {
+			if (response.status === 503) {
+				images.forEach(function (image, index) {
+					pending.set('retry|' + Date.now() + '|' + index, image);
+				});
+				window.setTimeout(scheduleFlush, 500);
+				return;
+			}
+
+			if (!response.ok) {
+				throw new Error('Observation request failed');
+			}
 		}).catch(function () {});
 	}
 

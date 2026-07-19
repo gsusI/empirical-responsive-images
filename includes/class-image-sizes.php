@@ -47,7 +47,7 @@ final class Image_Sizes {
 	 * @return string
 	 */
 	public static function name_for_width( int $width ): string {
-		return 'eri-' . absint( $width );
+		return 'empirical-responsive-images-' . absint( $width );
 	}
 
 	/**
@@ -73,7 +73,7 @@ final class Image_Sizes {
 	 * @return void
 	 */
 	public function enqueue_observer(): void {
-		if ( is_admin() || is_feed() || ! $this->settings->is_collection_enabled() ) {
+		if ( is_admin() || is_feed() || ! current_user_can( 'manage_options' ) || ! $this->settings->is_collection_enabled() ) {
 			return;
 		}
 
@@ -92,6 +92,7 @@ final class Image_Sizes {
 			'EmpiricalResponsiveImagesObserver',
 			array(
 				'endpoint'            => esc_url_raw( rest_url( 'empirical-responsive-images/v1/observations' ) ),
+				'nonce'               => wp_create_nonce( 'wp_rest' ),
 				'sampleRate'          => $this->settings->get_float( 'sample_rate' ),
 				'minRenderedWidth'    => $this->settings->get_int( 'min_rendered_width' ),
 				'maxImagesPerPayload' => $this->settings->get_int( 'max_payload_images' ),
@@ -99,6 +100,7 @@ final class Image_Sizes {
 		);
 	}
 
+	// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WordPress filter signature requires $src.
 	/**
 	 * Add cache/optimizer exclusion attributes and fallback config to observer script.
 	 *
@@ -108,20 +110,21 @@ final class Image_Sizes {
 	 * @return string
 	 */
 	public function filter_observer_script_tag( string $tag, string $handle, string $src ): string {
-		if ( 'empirical-responsive-images-observer' !== $handle ) {
+		if ( 'empirical-responsive-images-observer' !== $handle || ! current_user_can( 'manage_options' ) ) {
 			return $tag;
 		}
 
-		$attributes = array(
-			'data-cfasync'               => 'false',
-			'data-no-defer'              => '1',
-			'data-no-minify'             => '1',
-			'data-no-optimize'           => '1',
-			'data-pagespeed-no-defer'    => '1',
-			'data-eri-endpoint'          => esc_url_raw( rest_url( 'empirical-responsive-images/v1/observations' ) ),
-			'data-eri-sample-rate'       => (string) $this->settings->get_float( 'sample_rate' ),
-			'data-eri-min-rendered-width' => (string) $this->settings->get_int( 'min_rendered_width' ),
-			'data-eri-max-images'        => (string) $this->settings->get_int( 'max_payload_images' ),
+		$attributes     = array(
+			'data-cfasync'                                 => 'false',
+			'data-no-defer'                                => '1',
+			'data-no-minify'                               => '1',
+			'data-no-optimize'                             => '1',
+			'data-pagespeed-no-defer'                      => '1',
+			'data-empirical-responsive-images-endpoint'    => esc_url_raw( rest_url( 'empirical-responsive-images/v1/observations' ) ),
+			'data-empirical-responsive-images-nonce'       => wp_create_nonce( 'wp_rest' ),
+			'data-empirical-responsive-images-sample-rate' => (string) $this->settings->get_float( 'sample_rate' ),
+			'data-empirical-responsive-images-min-rendered-width' => (string) $this->settings->get_int( 'min_rendered_width' ),
+			'data-empirical-responsive-images-max-images'  => (string) $this->settings->get_int( 'max_payload_images' ),
 		);
 		$attribute_html = '';
 
@@ -131,13 +134,15 @@ final class Image_Sizes {
 
 		return str_replace( '<script ', '<script' . $attribute_html . ' ', $tag );
 	}
+	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 
+	// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WordPress filter signature requires attachment and size.
 	/**
 	 * Add useful defaults to WordPress-generated image attributes.
 	 *
-	 * @param array   $attr       Attributes.
+	 * @param array    $attr       Attributes.
 	 * @param \WP_Post $attachment Attachment post.
-	 * @param mixed   $size       Requested size.
+	 * @param mixed    $size       Requested size.
 	 * @return array
 	 */
 	public function filter_attachment_attributes( array $attr, \WP_Post $attachment, $size ): array {
@@ -153,4 +158,5 @@ final class Image_Sizes {
 
 		return $attr;
 	}
+	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 }
