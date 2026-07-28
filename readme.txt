@@ -102,6 +102,7 @@ Only logged-in users with the `manage_options` capability. The observer uses Wor
 == Changelog ==
 
 = 0.2.0 =
+* Align plugin ownership metadata with WeSolvers.
 * Require administrator capability and REST nonce verification for every observation write.
 * Use SiteGround Speed Optimizer's documented public purge functions instead of an unregistered action name.
 * Use the full plugin prefix for generated image-size names and observer data attributes.

@@ -6,8 +6,8 @@
  * Version: 0.2.0
  * Requires at least: 6.9
  * Requires PHP: 7.4
- * Author: Jesús Iniesta
- * Author URI: https://jesusiniesta.es/about
+ * Author: WeSolvers
+ * Author URI: https://wesolvers.com/
  * License: GPLv2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: empirical-responsive-images
