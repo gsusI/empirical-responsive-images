@@ -1,4 +1,5 @@
 = 0.2.0 - 2026-07-19 =
+* Changed - Align plugin ownership metadata with WeSolvers.
 * Security - Require administrator capability and REST nonce verification for every observation write.
 * Fixed - Use SiteGround Speed Optimizer's documented public purge functions instead of an unregistered action name.
 * Changed - Use the full plugin prefix for generated image-size names and observer data attributes.

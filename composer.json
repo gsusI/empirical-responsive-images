@@ -1,12 +1,12 @@
 {
-  "name": "jesusiniesta/empirical-responsive-images",
+  "name": "wesolvers/empirical-responsive-images",
   "description": "Evidence-driven responsive image sizes and local modern-format generation for WordPress.",
   "type": "wordpress-plugin",
   "license": "GPL-2.0-or-later",
   "authors": [
     {
-      "name": "Jesús Iniesta",
-      "homepage": "https://jesusiniesta.es/about"
+      "name": "WeSolvers",
+      "homepage": "https://wesolvers.com/"
     }
   ],
   "require": {
@@ -20,7 +20,7 @@
     "phpunit/phpunit": "^9.6",
     "squizlabs/php_codesniffer": "^3.13",
     "szepeviktor/phpstan-wordpress": "^2.0",
-    "wp-coding-standards/wpcs": "^3.2"
+    "wp-coding-standards/wpcs": "^3.4.1"
   },
   "autoload-dev": {
     "psr-4": {

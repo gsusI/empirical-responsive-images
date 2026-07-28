@@ -1,4 +1,4 @@
-# Copyright (C) 2026 Jesús Iniesta
+# Copyright (C) 2026 WeSolvers
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
@@ -32,12 +32,12 @@ msgstr ""
 
 #. Author of the plugin
 #: empirical-responsive-images.php
-msgid "Jesús Iniesta"
+msgid "WeSolvers"
 msgstr ""
 
 #. Author URI of the plugin
 #: empirical-responsive-images.php
-msgid "https://jesusiniesta.es/about"
+msgid "https://wesolvers.com/"
 msgstr ""
 
 #: includes/class-admin-page.php:66
