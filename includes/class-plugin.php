@@ -39,6 +39,13 @@ final class Plugin {
 	private $observation_store;
 
 	/**
+	 * Non-authoritative visitor gap store.
+	 *
+	 * @var Visitor_Gap_Store
+	 */
+	private $visitor_gap_store;
+
+	/**
 	 * Local asset manager.
 	 *
 	 * @var Asset_Manager
@@ -67,6 +74,13 @@ final class Plugin {
 	private $regenerator;
 
 	/**
+	 * Automatic target-bound optimizer.
+	 *
+	 * @var Background_Optimizer
+	 */
+	private $background_optimizer;
+
+	/**
 	 * Get singleton instance.
 	 *
 	 * @return Plugin
@@ -88,9 +102,12 @@ final class Plugin {
 		$settings      = new Settings();
 		$asset_manager = new Asset_Manager( $settings );
 		$store         = new Observation_Store( $asset_manager );
+		$gap_store     = new Visitor_Gap_Store();
 
 		$settings->ensure_option();
 		$store->ensure_option();
+		$gap_store->ensure_option();
+		Background_Optimizer::activate( $settings );
 		update_option( self::VERSION_OPTION, EMPIRICAL_RESPONSIVE_IMAGES_VERSION, false );
 		Cache_Compat::purge_all();
 	}
@@ -101,7 +118,7 @@ final class Plugin {
 	 * @return void
 	 */
 	public static function deactivate(): void {
-		// No scheduled jobs.
+		Background_Optimizer::deactivate();
 	}
 
 	/**
@@ -110,19 +127,23 @@ final class Plugin {
 	 * @return void
 	 */
 	public function init(): void {
-		$this->settings          = new Settings();
-		$this->asset_manager     = new Asset_Manager( $this->settings );
-		$this->observation_store = new Observation_Store( $this->asset_manager );
-		$this->image_sizes       = new Image_Sizes( $this->settings, $this->observation_store );
-		$this->format_generator  = new Format_Generator( $this->settings );
-		$this->regenerator       = new Regenerator( $this->format_generator, $this->observation_store, $this->asset_manager, $this->settings );
+		$this->settings             = new Settings();
+		$this->asset_manager        = new Asset_Manager( $this->settings );
+		$this->observation_store    = new Observation_Store( $this->asset_manager );
+		$this->format_generator     = new Format_Generator( $this->settings );
+		$this->visitor_gap_store    = new Visitor_Gap_Store( $this->asset_manager, $this->format_generator );
+		$this->image_sizes          = new Image_Sizes( $this->settings, $this->observation_store, $this->format_generator );
+		$this->regenerator          = new Regenerator( $this->format_generator, $this->observation_store, $this->asset_manager, $this->settings );
+		$this->background_optimizer = new Background_Optimizer( $this->settings, $this->visitor_gap_store, $this->asset_manager, $this->observation_store, $this->format_generator );
 
 		$cache_controller = new Cache_Controller( $this->settings, $this->observation_store );
-		$renderer         = new Renderer( $this->settings, $this->observation_store, $this->asset_manager );
-		$admin_page       = new Admin_Page( $this->settings, $this->observation_store, $this->format_generator );
-		$rest_controller  = new REST_Controller( $this->settings, $this->observation_store, $this->format_generator, $this->regenerator );
+		$renderer         = new Renderer( $this->settings, $this->observation_store, $this->asset_manager, $this->format_generator );
+		$admin_page       = new Admin_Page( $this->settings, $this->observation_store, $this->visitor_gap_store, $this->format_generator );
+		$rest_controller  = new REST_Controller( $this->settings, $this->observation_store, $this->visitor_gap_store, $this->format_generator, $this->regenerator, $this->background_optimizer );
 
 		$this->maybe_run_version_upgrade();
+		$this->visitor_gap_store->ensure_option();
+		$this->background_optimizer->ensure_watchdog_scheduled();
 		$cache_controller->maybe_mark_current_request_uncacheable();
 
 		add_action( 'template_redirect', array( $cache_controller, 'maybe_mark_current_request_uncacheable' ), 0 );
@@ -133,10 +154,17 @@ final class Plugin {
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
 		add_action( 'admin_menu', array( $admin_page, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $admin_page, 'enqueue_assets' ) );
+		add_action( 'update_option_' . Settings::OPTION_NAME, array( $this, 'maybe_purge_after_settings_change' ), 10, 2 );
+		add_action( Background_Optimizer::BATCH_HOOK, array( $this->background_optimizer, 'run' ) );
+		add_action( Background_Optimizer::WATCHDOG_HOOK, array( $this->background_optimizer, 'run' ) );
 		add_action( 'rest_api_init', array( $rest_controller, 'register_routes' ) );
+		add_action( 'delete_attachment', array( $this->format_generator, 'delete_attachment_sidecars' ) );
+		add_action( 'delete_attachment', array( $this->observation_store, 'delete_attachment_slots' ) );
 		add_filter( 'wp_generate_attachment_metadata', array( $this->format_generator, 'filter_generate_attachment_metadata' ), 20, 2 );
+		add_filter( 'wp_update_attachment_metadata', array( $this->format_generator, 'filter_update_attachment_metadata' ), 20, 2 );
 		add_filter( 'wp_get_attachment_image', array( $renderer, 'filter_attachment_image_html' ), 20, 5 );
 		add_filter( 'wp_content_img_tag', array( $renderer, 'filter_content_image_html' ), 20, 3 );
+		add_filter( 'the_content', array( $renderer, 'filter_content_fragment' ), 99 );
 		add_filter( 'wp_get_attachment_image_attributes', array( $this->image_sizes, 'filter_attachment_attributes' ), 20, 3 );
 		add_filter( 'wp_template_enhancement_output_buffer', array( $renderer, 'filter_final_html' ) );
 
@@ -170,6 +198,44 @@ final class Plugin {
 	 */
 	public function get_regenerator(): Regenerator {
 		return $this->regenerator;
+	}
+
+	/**
+	 * Purge cached markup when visitor gap detector inclusion changes.
+	 *
+	 * @param mixed $old_value Previous settings.
+	 * @param mixed $new_value New settings.
+	 * @return void
+	 */
+	public function maybe_purge_after_settings_change( $old_value, $new_value ): void {
+		$defaults     = ( new Settings() )->defaults();
+		$old_settings = array_merge( $defaults, is_array( $old_value ) ? $old_value : array() );
+		$new_settings = array_merge( $defaults, is_array( $new_value ) ? $new_value : array() );
+		$old_enabled  = ! empty( $old_settings['visitor_gap_learning_enabled'] );
+		$new_enabled  = ! empty( $new_settings['visitor_gap_learning_enabled'] );
+		$old_assets   = ! empty( $old_settings['asset_processing_enabled'] );
+		$new_assets   = ! empty( $new_settings['asset_processing_enabled'] );
+		$purge_cache  = false;
+
+		if ( $old_enabled !== $new_enabled ) {
+			$this->background_optimizer->configure_schedules( $new_enabled );
+			$purge_cache = true;
+		}
+
+		if ( $old_assets && ! $new_assets ) {
+			$this->visitor_gap_store->discard_jobs_by_type( 'asset' );
+		}
+
+		foreach ( array( 'min_rendered_width', 'max_registered_width', 'rounding_step', 'asset_processing_enabled', 'picture_enabled', 'webp_enabled', 'avif_enabled' ) as $key ) {
+			if ( (string) $old_settings[ $key ] !== (string) $new_settings[ $key ] ) {
+				$purge_cache = true;
+				break;
+			}
+		}
+
+		if ( $purge_cache ) {
+			Cache_Compat::purge_all();
+		}
 	}
 
 	/**

@@ -104,7 +104,7 @@ final class Cache_Controller {
 	 * @return bool
 	 */
 	private function should_guard_current_request(): bool {
-		if ( ! $this->settings->is_cache_guard_enabled() || is_admin() || wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+		if ( ! $this->settings->is_collection_enabled() || ! $this->settings->is_cache_guard_enabled() || is_admin() || wp_doing_ajax() || wp_doing_cron() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
 			return false;
 		}
 

@@ -9,6 +9,10 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
+wp_clear_scheduled_hook( 'empirical_responsive_images_optimizer_batch' );
+wp_clear_scheduled_hook( 'empirical_responsive_images_optimizer_watchdog' );
+delete_option( 'empirical_responsive_images_background_optimizer_lock' );
+
 $empirical_responsive_images_settings = get_option( 'empirical_responsive_images_settings', array() );
 
 if ( ! is_array( $empirical_responsive_images_settings ) || empty( $empirical_responsive_images_settings['delete_data_on_uninstall'] ) ) {
@@ -19,6 +23,8 @@ delete_option( 'empirical_responsive_images_settings' );
 delete_option( 'empirical_responsive_images_observations' );
 delete_option( 'empirical_responsive_images_version' );
 delete_option( 'empirical_responsive_images_observations_lock' );
+delete_option( 'empirical_responsive_images_visitor_gap_hints' );
+delete_option( 'empirical_responsive_images_visitor_gap_hints_lock' );
 
 $empirical_responsive_images_uploads    = wp_get_upload_dir();
 $empirical_responsive_images_target_dir = trailingslashit( $empirical_responsive_images_uploads['basedir'] ) . 'empirical-responsive-images';

@@ -15,6 +15,7 @@ analyse:
 
 test:
 	composer test
+	composer test:js
 
 check:
 	composer check

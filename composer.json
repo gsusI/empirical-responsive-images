@@ -41,12 +41,14 @@
     "phpcs": "phpcs --standard=phpcs.xml.dist",
     "phpstan": "phpstan analyse --configuration=phpstan.neon.dist --no-progress --memory-limit=1G",
     "test": "phpunit --configuration=phpunit.xml.dist",
+    "test:js": "node --test tests/js/*.test.js",
     "review:readiness": "tools/check-review-readiness.sh",
     "check": [
       "@lint:php",
       "@phpcs",
       "@phpstan",
       "@test",
+      "@test:js",
       "@review:readiness"
     ]
   }
