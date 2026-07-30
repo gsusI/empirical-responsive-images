@@ -1,18 +1,20 @@
 # Empirical Responsive Images
 
-Empirical Responsive Images helps WordPress sites discover the image sizes they actually render, register matching image sizes, regenerate missing variants, and serve WebP/AVIF sidecars when the server supports them.
+Empirical Responsive Images learns which image sizes a WordPress site actually needs, then automatically generates matching responsive variants and WebP/AVIF sidecars when the server supports them.
 
 It is built for people who want better responsive image output without sending media to an external optimization service.
 
 ## What it does
 
-- Observes rendered image slots on front-end pages visited by logged-in administrators.
-- Stores aggregate width and viewport data in WordPress options.
-- Registers empirical image sizes with WordPress.
-- Regenerates missing attachment sub-sizes from the admin screen or WP-CLI.
+- Detects materially uncovered responsive-image widths on every front-end visit by default.
+- Binds every report to a signed local attachment or asset target.
+- Confirms repeated demand, then automatically generates the missing target-specific variant through WP-Cron.
+- Optionally collects richer aggregate diagnostics when a logged-in administrator browses the front end; automatic optimization does not depend on this.
+- Stores bounded width and coarse layout evidence in WordPress options.
+- Regenerates target-specific missing attachment sub-sizes automatically, with optional full-library maintenance from the admin screen or WP-CLI.
 - Generates responsive variants for local theme and plugin asset images.
-- Serves generated WebP/AVIF variants through `<picture>` markup when available.
-- Avoids page caching during measurement until a page has stable image coverage.
+- Serves generated WebP/AVIF variants and empirical `sizes` hints when available.
+- Purges stale page markup after a background optimization succeeds.
 
 ## Requirements
 
@@ -39,7 +41,7 @@ composer install
 just check
 ```
 
-This runs PHP syntax checks, WordPress and PHP compatibility standards, PHPStan, PHPUnit, and version synchronization.
+This runs PHP syntax checks, WordPress and PHP compatibility standards, PHPStan, PHPUnit, JavaScript detector tests, review-readiness checks, and version synchronization.
 
 Run the complete release gate inside Docker so the built ZIP is activated and checked in a clean WordPress environment:
 
@@ -51,9 +53,25 @@ That command runs local quality gates, builds the wordpress.org ZIP, runs Plugin
 
 ## Operational guarantees
 
-- Observation writes require an authenticated administrator, a valid WordPress REST nonce, same-site page data, and bounded payloads.
+- Activation is enough. Visitor learning, confirmation, generation, retries, and cache refresh run automatically; the admin screen is status and advanced configuration only.
+- Optional detailed diagnostic writes require an authenticated administrator, a valid WordPress REST nonce, same-site page data, and bounded payloads.
+- Automatic visitor learning is enabled by default for every front-end visitor. Covered images send no report.
+- Every reported gap carries an HMAC-signed local target. The server re-resolves it, verifies current coverage and source dimensions, and rejects forged, off-site, stale, or already-covered targets.
+- Near matches are treated as covered. Remaining gaps map to a finite canonical width palette instead of creating a new file for each rendered pixel. Automatic widths never exceed 2,560 pixels or their source; attachments also respect WordPress's effective `max_srcset_image_width`.
+- Public requests only record bounded evidence. File generation and cache refresh happen later in a locked, target-specific WP-Cron worker.
+- Safety ceilings include 12 pairs per report; 120 evidence-bearing reports and 256 accepted unique pairs per 15-minute server window; 96 one-confirmation probation entries; 256 simultaneous active jobs and targets; a fixed 38-entry canonical palette per target; 32 recent failure records; and 50 generation attempts per day. Invalid or replay-only requests cannot consume the accepted-work budget.
+- Background generation pauses automatically before claiming work when the uploads filesystem has less than 256 MiB free. Queued work remains intact and the watchdog checks again later.
+- Extra replays never buy queue priority. Terminal failures cool down for 24 hours, then fresh multi-window evidence can requalify automatically with a clean retry budget.
+- Low-confidence evidence cannot hold the queue for 30 days: under pressure, missed-window probation entries are replaced by newer demand.
+- The detector remains enabled indefinitely. Thirty days is only a cleanup threshold for stale unconfirmed evidence and terminal failure records. Queued work, successful target history, generated variants, and future learning do not expire under that rule.
+- Visitor payloads contain signed local target handles and canonical width buckets. Eligible targets can also send coarse, bounded viewport and slot buckets so responsive `sizes` hints can converge. Payloads contain no page URL, cookie, IP address, user agent, referrer, or visitor identity.
+- Each image advertises its own attainable width and applicable WebP/AVIF formats, preventing impossible or alpha-incompatible work.
+- Author-owned `srcset`, `sizes`, `<picture>` art direction, and cropped attachment renditions remain authoritative instead of being rewritten incorrectly.
+- Automatic resizing is limited to safe JPEG/PNG sources. Potentially animated GIF, WebP, and AVIF sources are not flattened.
 - Stored page identities contain canonical paths without query strings.
-- Front-end rendering never creates image files. Upload and explicit regeneration workflows own file writes.
+- Front-end rendering never creates image files. Upload handlers, locked background jobs, and explicit maintenance workflows own file writes.
+- Synchronous upload conversion skips sources over 20 MB or 24 megapixels; larger work remains out of the upload request.
+- Attachment sidecars use collision-proof paths under `uploads/empirical-responsive-images/attachments/`; they never overwrite a same-named upload.
 - Uninstall keeps data by default. Destructive cleanup requires an explicit administrator setting.
 - Release packages are version-synchronized and contain no test suite, local build data, credentials, or development dependencies.
 

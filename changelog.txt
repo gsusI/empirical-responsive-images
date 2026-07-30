@@ -1,3 +1,18 @@
+= 0.3.0 - 2026-07-30 =
+* Added - Automatic visitor gap learning, enabled on activation, for image widths not adequately covered by current srcset candidates.
+* Added - Bind each report to an HMAC-signed attachment or manageable local asset, then generate only that target in a locked WP-Cron worker.
+* Privacy - Omit page URLs, cookies, IP addresses, user agents, referrers, and visitor identities from automatic gap reports.
+* Security - Verify targets and coverage server-side; cap requests, probation entries, simultaneous jobs and targets, learned widths, retries, source bytes/pixels, and daily generation work.
+* Changed - Apply 30-day cleanup eligibility only to stale unconfirmed evidence and terminal failure records; active queue work and generated variants persist.
+* Changed - Keep automatic learning independent from administrator visits, approval, promotion, and the legacy page cache guard.
+* Added - Canonical cross-browser width buckets, per-image attainable-width and applicable-format checks, missed-window probation eviction, stale-file recovery, and durable width limits.
+* Added - Coarse target-bound layout evidence and empirical `sizes` output for relative and responsive image slots.
+* Fixed - Preserve author-owned `srcset`, `sizes`, art direction, and animation-sensitive source formats.
+* Fixed - Prevent invalid or replay-only traffic from muting learning, remove replay-based queue priority, and reopen terminal failures automatically after a bounded cooldown.
+* Security - Bound synchronous source conversion by bytes and pixels, reserve uploads filesystem space, and let fresh qualified demand replace unconfirmed queue entries under pressure.
+* Changed - Store attachment WebP/AVIF output in collision-proof plugin-owned paths.
+* Fixed - Debounce stale page markup cache purges after background or explicit regeneration completes.
+
 = 0.2.0 - 2026-07-19 =
 * Changed - Align plugin ownership metadata with WeSolvers.
 * Security - Require administrator capability and REST nonce verification for every observation write.
