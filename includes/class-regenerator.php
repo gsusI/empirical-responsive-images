@@ -165,6 +165,11 @@ final class Regenerator {
 		}
 
 		$done_count = min( $total, $offset + $processed );
+		$done       = $done_count >= $total;
+
+		if ( $done ) {
+			Cache_Compat::purge_all();
+		}
 
 		return array(
 			'page'              => $page,
@@ -174,7 +179,7 @@ final class Regenerator {
 			'assets_total'      => $asset_total,
 			'processed'         => $processed,
 			'done_count'        => $done_count,
-			'done'              => $done_count >= $total,
+			'done'              => $done,
 			'next_page'         => $page + 1,
 			'metadata_updated'  => $metadata_updated,
 			'format_generated'  => $format_generated,

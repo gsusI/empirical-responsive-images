@@ -30,6 +30,13 @@ final class Admin_Page {
 	private $store;
 
 	/**
+	 * Visitor gap store.
+	 *
+	 * @var Visitor_Gap_Store
+	 */
+	private $visitor_gap_store;
+
+	/**
 	 * Format generator.
 	 *
 	 * @var Format_Generator
@@ -48,12 +55,14 @@ final class Admin_Page {
 	 *
 	 * @param Settings          $settings Settings.
 	 * @param Observation_Store $store Observation store.
+	 * @param Visitor_Gap_Store $visitor_gap_store Visitor gap store.
 	 * @param Format_Generator  $format_generator Format generator.
 	 */
-	public function __construct( Settings $settings, Observation_Store $store, Format_Generator $format_generator ) {
-		$this->settings         = $settings;
-		$this->store            = $store;
-		$this->format_generator = $format_generator;
+	public function __construct( Settings $settings, Observation_Store $store, Visitor_Gap_Store $visitor_gap_store, Format_Generator $format_generator ) {
+		$this->settings          = $settings;
+		$this->store             = $store;
+		$this->visitor_gap_store = $visitor_gap_store;
+		$this->format_generator  = $format_generator;
 	}
 
 	/**
@@ -128,11 +137,12 @@ final class Admin_Page {
 			return;
 		}
 
-		$options    = $this->settings->all();
-		$data       = $this->store->get_data();
-		$candidates = $this->store->get_registered_candidates( $this->settings );
-		$assets     = $this->store->get_asset_candidates( $this->settings );
-		$formats    = $this->format_generator->get_support_status();
+		$options      = $this->settings->all();
+		$data         = $this->store->get_data();
+		$candidates   = $this->store->get_registered_candidates( $this->settings );
+		$assets       = $this->store->get_asset_candidates( $this->settings );
+		$visitor_gaps = $this->visitor_gap_store->get_hints( $this->settings );
+		$formats      = $this->format_generator->get_support_status();
 		?>
 		<div class="wrap empirical-responsive-images-admin-page">
 			<h1 class="empirical-responsive-images-admin-page__title"><?php esc_html_e( 'Empirical Responsive Images', 'empirical-responsive-images' ); ?></h1>
@@ -140,7 +150,7 @@ final class Admin_Page {
 			<section class="empirical-responsive-images-admin-card empirical-responsive-images-admin-card--summary" aria-labelledby="empirical-responsive-images-summary-title">
 				<h2 class="empirical-responsive-images-admin-card__title" id="empirical-responsive-images-summary-title"><?php esc_html_e( 'Observed image slots', 'empirical-responsive-images' ); ?></h2>
 				<p class="empirical-responsive-images-admin-card__description">
-					<?php esc_html_e( 'For security, the front-end observer runs only for logged-in administrators. It records aggregate rendered image widths, DPR, viewport widths, attachment IDs, and page paths.', 'empirical-responsive-images' ); ?>
+					<?php esc_html_e( 'Automatic learning uses signed local image targets and fixed width buckets. It stores no page URL, cookie, IP address, user agent, or visitor identity.', 'empirical-responsive-images' ); ?>
 				</p>
 				<ul class="empirical-responsive-images-summary-list">
 					<li class="empirical-responsive-images-summary-list__item">
@@ -158,6 +168,10 @@ final class Admin_Page {
 					<li class="empirical-responsive-images-summary-list__item">
 						<strong class="empirical-responsive-images-summary-list__label"><?php esc_html_e( 'Observed local assets', 'empirical-responsive-images' ); ?>:</strong>
 						<span class="empirical-responsive-images-summary-list__value"><?php echo esc_html( number_format_i18n( count( $assets ) ) ); ?></span>
+					</li>
+					<li class="empirical-responsive-images-summary-list__item">
+						<strong class="empirical-responsive-images-summary-list__label"><?php esc_html_e( 'Automatic learning jobs', 'empirical-responsive-images' ); ?>:</strong>
+						<span class="empirical-responsive-images-summary-list__value"><?php echo esc_html( number_format_i18n( count( $visitor_gaps ) ) ); ?></span>
 					</li>
 				</ul>
 			</section>
@@ -189,7 +203,22 @@ final class Admin_Page {
 					<table class="form-table empirical-responsive-images-settings-table" role="presentation">
 						<tbody class="empirical-responsive-images-settings-table__body">
 							<?php $this->render_checkbox_row( 'collection_enabled', __( 'Collect rendered image sizes', 'empirical-responsive-images' ), $options ); ?>
-							<?php $this->render_checkbox_row( 'cache_guard_enabled', __( 'Prevent page caching until image sizes are confirmed', 'empirical-responsive-images' ), $options ); ?>
+							<?php
+							$this->render_checkbox_row(
+								'visitor_gap_learning_enabled',
+								__( 'Automatically learn and generate uncovered image sizes', 'empirical-responsive-images' ),
+								$options,
+								__( 'Enabled by default. Covered images send nothing. Repeated target-bound gaps are generated automatically in bounded background jobs.', 'empirical-responsive-images' )
+							);
+							?>
+							<?php
+							$this->render_checkbox_row(
+								'cache_guard_enabled',
+								__( 'Use the legacy page cache guard when automatic learning is disabled', 'empirical-responsive-images' ),
+								$options,
+								__( 'Automatic learning handles stale markup with a cache purge after successful background generation.', 'empirical-responsive-images' )
+							);
+							?>
 							<?php $this->render_checkbox_row( 'picture_enabled', __( 'Serve generated WebP/AVIF through picture sources', 'empirical-responsive-images' ), $options ); ?>
 							<?php $this->render_checkbox_row( 'asset_processing_enabled', __( 'Generate responsive variants for local theme and plugin asset images', 'empirical-responsive-images' ), $options ); ?>
 							<?php $this->render_checkbox_row( 'webp_enabled', __( 'Generate WebP sidecars when supported', 'empirical-responsive-images' ), $options ); ?>
@@ -199,12 +228,19 @@ final class Admin_Page {
 							<?php $this->render_number_row( 'rounding_step', __( 'Round observed widths to nearest pixels', 'empirical-responsive-images' ), $options, '8', '256', '1' ); ?>
 							<?php $this->render_number_row( 'min_rendered_width', __( 'Minimum rendered image width to observe', 'empirical-responsive-images' ), $options, '1', '1200', '1' ); ?>
 							<?php $this->render_number_row( 'max_registered_width', __( 'Maximum registered width', 'empirical-responsive-images' ), $options, '320', '5120', '1' ); ?>
-							<?php $this->render_checkbox_row( 'delete_data_on_uninstall', __( 'Delete observations, settings, and generated asset files when uninstalling', 'empirical-responsive-images' ), $options ); ?>
+							<?php $this->render_number_row( 'visitor_gap_min_confirmations', __( 'Confirmation windows before automatic optimization', 'empirical-responsive-images' ), $options, '2', '20', '1' ); ?>
+							<?php $this->render_checkbox_row( 'delete_data_on_uninstall', __( 'Delete observations, settings, and plugin-generated image files when uninstalling', 'empirical-responsive-images' ), $options ); ?>
 						</tbody>
 					</table>
 					<?php submit_button( __( 'Save settings', 'empirical-responsive-images' ), 'primary', 'submit', false, array( 'class' => 'empirical-responsive-images-settings-form__submit button button-primary' ) ); ?>
 				</section>
 			</form>
+
+			<section class="empirical-responsive-images-admin-card empirical-responsive-images-admin-card--visitor-gaps" aria-labelledby="empirical-responsive-images-visitor-gaps-title">
+				<h2 class="empirical-responsive-images-admin-card__title" id="empirical-responsive-images-visitor-gaps-title"><?php esc_html_e( 'Automatic learning queue', 'empirical-responsive-images' ); ?></h2>
+				<p class="empirical-responsive-images-admin-card__description"><?php esc_html_e( 'Repeated gaps are verified against their signed local image target, queued, and generated automatically. This table is status only; no approval is required.', 'empirical-responsive-images' ); ?></p>
+				<?php $this->render_visitor_gap_table( $visitor_gaps ); ?>
+			</section>
 
 			<section class="empirical-responsive-images-admin-card empirical-responsive-images-admin-card--sizes" aria-labelledby="empirical-responsive-images-sizes-title">
 				<h2 class="empirical-responsive-images-admin-card__title" id="empirical-responsive-images-sizes-title"><?php esc_html_e( 'Registered empirical sizes', 'empirical-responsive-images' ); ?></h2>
@@ -218,7 +254,7 @@ final class Admin_Page {
 
 			<section class="empirical-responsive-images-admin-card empirical-responsive-images-admin-card--regenerate" aria-labelledby="empirical-responsive-images-regenerate-title">
 				<h2 class="empirical-responsive-images-admin-card__title" id="empirical-responsive-images-regenerate-title"><?php esc_html_e( 'Regenerate thumbnails', 'empirical-responsive-images' ); ?></h2>
-				<p class="empirical-responsive-images-admin-card__description"><?php esc_html_e( 'Regenerates missing image subsizes for all image attachments, then creates observed local asset variants and WebP/AVIF sidecars when the server supports them.', 'empirical-responsive-images' ); ?></p>
+				<p class="empirical-responsive-images-admin-card__description"><?php esc_html_e( 'Automatic learning handles new target-specific gaps. This optional maintenance tool rebuilds all known attachment and local asset variants.', 'empirical-responsive-images' ); ?></p>
 				<label class="empirical-responsive-images-regenerate-control__force-label">
 					<input class="empirical-responsive-images-regenerate-control__force-checkbox" type="checkbox" value="1">
 					<?php esc_html_e( 'Force rebuild existing metadata and sidecars', 'empirical-responsive-images' ); ?>
@@ -238,12 +274,13 @@ final class Admin_Page {
 	/**
 	 * Render checkbox setting row.
 	 *
-	 * @param string $key     Option key.
-	 * @param string $label   Label.
-	 * @param array  $options Options.
+	 * @param string $key         Option key.
+	 * @param string $label       Label.
+	 * @param array  $options     Options.
+	 * @param string $description Optional description.
 	 * @return void
 	 */
-	private function render_checkbox_row( string $key, string $label, array $options ): void {
+	private function render_checkbox_row( string $key, string $label, array $options, string $description = '' ): void {
 		$field_id = 'empirical-responsive-images-' . str_replace( '_', '-', $key );
 		?>
 		<tr class="empirical-responsive-images-settings-table__row">
@@ -253,6 +290,9 @@ final class Admin_Page {
 					<input class="empirical-responsive-images-settings-table__checkbox" id="<?php echo esc_attr( $field_id ); ?>" type="checkbox" name="<?php echo esc_attr( Settings::OPTION_NAME ); ?>[<?php echo esc_attr( $key ); ?>]" value="1" <?php checked( ! empty( $options[ $key ] ) ); ?>>
 					<?php esc_html_e( 'Enabled', 'empirical-responsive-images' ); ?>
 				</label>
+				<?php if ( '' !== $description ) : ?>
+					<p class="empirical-responsive-images-settings-table__description description"><?php echo esc_html( $description ); ?></p>
+				<?php endif; ?>
 			</td>
 		</tr>
 		<?php
@@ -284,6 +324,74 @@ final class Admin_Page {
 	}
 
 	/**
+	 * Render automatic visitor learning status.
+	 *
+	 * @param array $hints Visitor gap hints.
+	 * @return void
+	 */
+	private function render_visitor_gap_table( array $hints ): void {
+		if ( empty( $hints ) ) {
+			?>
+			<p class="empirical-responsive-images-empty-state empirical-responsive-images-visitor-gap-empty-state"><?php esc_html_e( 'No uncovered image gaps are waiting. Automatic learning is up to date.', 'empirical-responsive-images' ); ?></p>
+			<?php
+			return;
+		}
+
+		?>
+		<table class="widefat striped empirical-responsive-images-visitor-gap-table">
+			<thead class="empirical-responsive-images-visitor-gap-table__head">
+				<tr class="empirical-responsive-images-visitor-gap-table__row empirical-responsive-images-visitor-gap-table__row--head">
+					<th class="empirical-responsive-images-visitor-gap-table__heading" scope="col"><?php esc_html_e( 'Target', 'empirical-responsive-images' ); ?></th>
+					<th class="empirical-responsive-images-visitor-gap-table__heading" scope="col"><?php esc_html_e( 'Width', 'empirical-responsive-images' ); ?></th>
+					<th class="empirical-responsive-images-visitor-gap-table__heading" scope="col"><?php esc_html_e( 'Confirmation windows', 'empirical-responsive-images' ); ?></th>
+					<th class="empirical-responsive-images-visitor-gap-table__heading" scope="col"><?php esc_html_e( 'Last seen', 'empirical-responsive-images' ); ?></th>
+					<th class="empirical-responsive-images-visitor-gap-table__heading" scope="col"><?php esc_html_e( 'Status', 'empirical-responsive-images' ); ?></th>
+				</tr>
+			</thead>
+			<tbody class="empirical-responsive-images-visitor-gap-table__body">
+				<?php foreach ( $hints as $hint ) : ?>
+					<?php
+					$width     = absint( $hint['width'] ?? 0 );
+					$last_seen = absint( $hint['last_seen'] ?? 0 );
+					$status    = sanitize_key( (string) ( $hint['status'] ?? 'pending' ) );
+					$labels    = array(
+						'pending'    => __( 'Collecting', 'empirical-responsive-images' ),
+						'queued'     => __( 'Queued', 'empirical-responsive-images' ),
+						'processing' => __( 'Optimizing', 'empirical-responsive-images' ),
+						'retry_wait' => __( 'Retry scheduled', 'empirical-responsive-images' ),
+						'failed'     => __( 'Cooling down after errors', 'empirical-responsive-images' ),
+					);
+					?>
+					<tr class="empirical-responsive-images-visitor-gap-table__row">
+						<td class="empirical-responsive-images-visitor-gap-table__cell"><code class="empirical-responsive-images-visitor-gap-table__target"><?php echo esc_html( (string) ( $hint['label'] ?? __( 'Local image', 'empirical-responsive-images' ) ) ); ?></code></td>
+						<td class="empirical-responsive-images-visitor-gap-table__cell"><?php echo esc_html( number_format_i18n( $width ) ); ?>px</td>
+						<td class="empirical-responsive-images-visitor-gap-table__cell"><?php echo esc_html( number_format_i18n( absint( $hint['confirmations'] ?? 0 ) ) ); ?></td>
+						<td class="empirical-responsive-images-visitor-gap-table__cell">
+							<?php
+							echo esc_html(
+								$last_seen > 0
+									? sprintf(
+										/* translators: %s: human-readable time difference. */
+										__( '%s ago', 'empirical-responsive-images' ),
+										human_time_diff( $last_seen, time() )
+									)
+									: __( 'Unknown', 'empirical-responsive-images' )
+							);
+							?>
+						</td>
+						<td class="empirical-responsive-images-visitor-gap-table__cell">
+							<span class="empirical-responsive-images-visitor-gap-table__status empirical-responsive-images-visitor-gap-table__status--<?php echo esc_attr( $status ); ?>">
+								<?php echo esc_html( $labels[ $status ] ?? __( 'Waiting', 'empirical-responsive-images' ) ); ?>
+							</span>
+						</td>
+					</tr>
+				<?php endforeach; ?>
+			</tbody>
+		</table>
+		<?php
+	}
+
+	/**
 	 * Render observed size table.
 	 *
 	 * @param array $candidates Size candidates.
@@ -292,7 +400,7 @@ final class Admin_Page {
 	private function render_sizes_table( array $candidates ): void {
 		if ( empty( $candidates ) ) {
 			?>
-			<p class="empirical-responsive-images-empty-state"><?php esc_html_e( 'No front-end image observations yet. While logged in as an administrator, visit the site on desktop and mobile, then return here.', 'empirical-responsive-images' ); ?></p>
+			<p class="empirical-responsive-images-empty-state"><?php esc_html_e( 'No optional detailed measurements yet. Automatic target-specific learning runs separately on every front-end visit.', 'empirical-responsive-images' ); ?></p>
 			<?php
 			return;
 		}
@@ -306,6 +414,7 @@ final class Admin_Page {
 					<th class="empirical-responsive-images-size-table__heading" scope="col"><?php esc_html_e( 'Observations', 'empirical-responsive-images' ); ?></th>
 					<th class="empirical-responsive-images-size-table__heading" scope="col"><?php esc_html_e( 'Viewports', 'empirical-responsive-images' ); ?></th>
 					<th class="empirical-responsive-images-size-table__heading" scope="col"><?php esc_html_e( 'DPRs', 'empirical-responsive-images' ); ?></th>
+					<th class="empirical-responsive-images-size-table__heading" scope="col"><?php esc_html_e( 'Origin', 'empirical-responsive-images' ); ?></th>
 				</tr>
 			</thead>
 			<tbody class="empirical-responsive-images-size-table__body">
@@ -316,7 +425,10 @@ final class Admin_Page {
 						<td class="empirical-responsive-images-size-table__cell"><?php echo esc_html( number_format_i18n( absint( $candidate['min_height'] ?? 0 ) ) ); ?>-<?php echo esc_html( number_format_i18n( absint( $candidate['max_height'] ?? 0 ) ) ); ?>px</td>
 						<td class="empirical-responsive-images-size-table__cell"><?php echo esc_html( number_format_i18n( absint( $candidate['count'] ?? 0 ) ) ); ?></td>
 						<td class="empirical-responsive-images-size-table__cell"><?php echo esc_html( implode( ', ', array_keys( is_array( $candidate['viewports'] ?? null ) ? $candidate['viewports'] : array() ) ) ); ?></td>
-						<td class="empirical-responsive-images-size-table__cell"><?php echo esc_html( implode( ', ', array_keys( is_array( $candidate['dprs'] ?? null ) ? $candidate['dprs'] : array() ) ) ); ?></td>
+							<td class="empirical-responsive-images-size-table__cell"><?php echo esc_html( implode( ', ', array_keys( is_array( $candidate['dprs'] ?? null ) ? $candidate['dprs'] : array() ) ) ); ?></td>
+							<td class="empirical-responsive-images-size-table__cell">
+								<?php esc_html_e( 'Detailed measurement', 'empirical-responsive-images' ); ?>
+							</td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>

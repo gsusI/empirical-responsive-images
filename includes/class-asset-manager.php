@@ -17,6 +17,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Asset_Manager {
 	private const VARIANT_DIRECTORY = 'empirical-responsive-images/assets';
 	private const MAX_SOURCE_BYTES  = 20971520;
+	private const MAX_SOURCE_PIXELS = 24000000;
+	private const MAX_VARIANT_FILES = 512;
+	private const MAX_SOURCE_CACHE  = 320;
 
 	/**
 	 * Settings.
@@ -24,6 +27,13 @@ final class Asset_Manager {
 	 * @var Settings
 	 */
 	private $settings;
+
+	/**
+	 * Request-local resolved source cache.
+	 *
+	 * @var array
+	 */
+	private $source_cache = array();
 
 	/**
 	 * Constructor.
@@ -70,6 +80,119 @@ final class Asset_Manager {
 		$source = $this->resolve_source( $url );
 
 		return ! empty( $source['width'] ) ? absint( $source['width'] ) : 0;
+	}
+
+	/**
+	 * Get source pixel dimensions for a manageable asset URL.
+	 *
+	 * @param string $url Image URL.
+	 * @return array
+	 */
+	public function source_dimensions_for_url( string $url ): array {
+		$source = $this->resolve_source( $url );
+
+		if ( empty( $source ) ) {
+			return array();
+		}
+
+		return array(
+			'width'  => absint( $source['width'] ?? 0 ),
+			'height' => absint( $source['height'] ?? 0 ),
+			'path'   => isset( $source['path'] ) && is_string( $source['path'] ) ? $source['path'] : '',
+		);
+	}
+
+	/**
+	 * Get current same-format generated widths for a manageable asset.
+	 *
+	 * The source width is always included. Directory enumeration is limited to
+	 * the asset's dedicated keyed directory and a fixed number of entries.
+	 *
+	 * @param string $url Image URL.
+	 * @return array
+	 */
+	public function get_existing_asset_widths( string $url ): array {
+		$source = $this->resolve_source( $url );
+
+		if ( empty( $source ) ) {
+			return array();
+		}
+
+		$source_width = absint( $source['width'] );
+		$widths       = array( $source_width );
+		$sample       = $this->target_file_for_source( $source, 1, (string) $source['extension'] );
+		$directory    = dirname( $sample['path'] );
+
+		if ( ! is_dir( $directory ) || ! is_readable( $directory ) || is_link( $directory ) ) {
+			return $widths;
+		}
+
+		$pattern = '/^' . preg_quote( (string) $source['filename'], '/' ) . '-([1-9][0-9]{0,9})w\.' . preg_quote( (string) $source['extension'], '/' ) . '$/D';
+		$scanned = 0;
+
+		try {
+			$files = new \FilesystemIterator( $directory, \FilesystemIterator::SKIP_DOTS );
+		} catch ( \UnexpectedValueException $error ) {
+			return $widths;
+		}
+
+		foreach ( $files as $file ) {
+			++$scanned;
+
+			if ( $scanned > self::MAX_VARIANT_FILES ) {
+				break;
+			}
+
+			if ( $file->isLink() || ! $file->isFile() || ! $file->isReadable() ) {
+				continue;
+			}
+
+			if ( ! preg_match( $pattern, $file->getFilename(), $matches ) ) {
+				continue;
+			}
+
+			$width = absint( $matches[1] );
+
+			if ( $width < 1 || $width > $source_width || ! $this->is_current_variant( $file->getPathname(), absint( $source['mtime'] ) ) ) {
+				continue;
+			}
+
+			$widths[] = $width;
+		}
+
+		$widths = array_values( array_unique( $widths ) );
+		sort( $widths );
+
+		return $widths;
+	}
+
+	/**
+	 * Keep only requested formats that can be generated for one asset source.
+	 *
+	 * @param string $url     Image URL.
+	 * @param array  $formats Requested formats.
+	 * @return array
+	 */
+	public function get_applicable_formats_for_url( string $url, array $formats ): array {
+		$source = $this->resolve_source( $url );
+
+		if ( empty( $source ) ) {
+			return array();
+		}
+
+		$applicable = array();
+
+		foreach ( array_values( array_unique( array_map( 'sanitize_key', $formats ) ) ) as $format ) {
+			if (
+				in_array( $format, array( 'webp', 'avif' ), true )
+				&& $this->supports_format( $format )
+				&& Alpha_Compat::can_use_format_for_source( (string) $source['path'], $format )
+			) {
+				$applicable[] = $format;
+			}
+		}
+
+		return $applicable;
 	}
 
 	/**
@@ -142,7 +265,7 @@ final class Asset_Manager {
 	 * @return array
 	 */
 	public function build_asset_sources( string $url, array $target_widths, array $slot_widths, bool $force = false ): array {
-		return $this->build_sources( $url, $target_widths, $slot_widths, true, $force );
+		return $this->build_sources( $url, $target_widths, $slot_widths, true, $force, true );
 	}
 
 	/**
@@ -157,7 +280,7 @@ final class Asset_Manager {
 	 * @return array
 	 */
 	public function get_existing_asset_sources( string $url, array $target_widths, array $slot_widths ): array {
-		return $this->build_sources( $url, $target_widths, $slot_widths, false, false );
+		return $this->build_sources( $url, $target_widths, $slot_widths, false, false, true );
 	}
 
 	/**
@@ -168,16 +291,17 @@ final class Asset_Manager {
 	 * @param array  $slot_widths      Rendered CSS slot widths.
 	 * @param bool   $generate_missing Whether missing files may be generated.
 	 * @param bool   $force            Whether existing files should be rebuilt.
+	 * @param bool   $include_source   Whether to include the original source width.
 	 * @return array
 	 */
-	private function build_sources( string $url, array $target_widths, array $slot_widths, bool $generate_missing, bool $force ): array {
+	private function build_sources( string $url, array $target_widths, array $slot_widths, bool $generate_missing, bool $force, bool $include_source ): array {
 		$source = $this->resolve_source( $url );
 
 		if ( empty( $source ) ) {
 			return array();
 		}
 
-		$widths = $this->normalize_target_widths( $target_widths, absint( $source['width'] ) );
+		$widths = $this->normalize_target_widths( $target_widths, absint( $source['width'] ), $include_source );
 
 		if ( empty( $widths ) ) {
 			return array();
@@ -354,6 +478,33 @@ final class Asset_Manager {
 	public function generate_for_asset( string $url, array $target_widths, array $slot_widths, bool $force = false ): array {
 		$result = $this->build_asset_sources( $url, $target_widths, $slot_widths, $force );
 
+		return $this->summarize_generation_result( $result );
+	}
+
+	/**
+	 * Generate one requested asset width and its enabled alternate formats.
+	 *
+	 * Unlike full/manual asset generation, this does not add the original source
+	 * width unless the requested width itself is capped to that width.
+	 *
+	 * @param string $url   Image URL.
+	 * @param int    $width Target width.
+	 * @param bool   $force Force rebuild.
+	 * @return array
+	 */
+	public function generate_for_asset_width( string $url, int $width, bool $force = false ): array {
+		$result = $this->build_sources( $url, array( $width ), array(), true, $force, false );
+
+		return $this->summarize_generation_result( $result );
+	}
+
+	/**
+	 * Reduce a source-building result to generation counters and errors.
+	 *
+	 * @param array $result Source-building result.
+	 * @return array
+	 */
+	private function summarize_generation_result( array $result ): array {
 		return array(
 			'generated' => absint( $result['generated'] ?? 0 ),
 			'skipped'   => absint( $result['skipped'] ?? 0 ),
@@ -374,10 +525,14 @@ final class Asset_Manager {
 			return array();
 		}
 
+		if ( array_key_exists( $normalized_url, $this->source_cache ) ) {
+			return $this->source_cache[ $normalized_url ];
+		}
+
 		$path = rawurldecode( $normalized_url );
 
 		if ( false !== strpos( $path, '..' ) ) {
-			return array();
+			return $this->cache_source( $normalized_url, array() );
 		}
 
 		$candidates = $this->path_candidates_for_url_path( $path );
@@ -396,11 +551,7 @@ final class Asset_Manager {
 			$type = wp_check_filetype( $real_path );
 			$mime = is_string( $type['type'] ) ? $type['type'] : '';
 
-			if ( ! in_array( $mime, array( 'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif' ), true ) ) {
-				continue;
-			}
-
-			if ( 'image/gif' === $mime && $this->is_animated_gif( $real_path ) ) {
+			if ( ! in_array( $mime, array( 'image/jpeg', 'image/png' ), true ) ) {
 				continue;
 			}
 
@@ -410,19 +561,46 @@ final class Asset_Manager {
 				continue;
 			}
 
-			return array(
-				'key'       => substr( sha1( wp_normalize_path( $real_path ) . '|' . $normalized_url ), 0, 20 ),
-				'url'       => home_url( $normalized_url ),
-				'path'      => $real_path,
-				'width'     => absint( $size[0] ),
-				'height'    => absint( $size[1] ),
-				'extension' => strtolower( (string) pathinfo( $real_path, PATHINFO_EXTENSION ) ),
-				'filename'  => sanitize_file_name( (string) pathinfo( $real_path, PATHINFO_FILENAME ) ),
-				'mtime'     => filemtime( $real_path ),
+			$pixel_count = absint( $size[0] ) * absint( $size[1] );
+			$pixel_limit = (int) apply_filters( 'empirical_responsive_images_max_source_pixels', self::MAX_SOURCE_PIXELS, $real_path );
+
+			if ( $pixel_limit < 1 || $pixel_count > $pixel_limit ) {
+				continue;
+			}
+
+			return $this->cache_source(
+				$normalized_url,
+				array(
+					'key'       => substr( sha1( wp_normalize_path( $real_path ) . '|' . $normalized_url ), 0, 20 ),
+					'url'       => home_url( $normalized_url ),
+					'path'      => $real_path,
+					'width'     => absint( $size[0] ),
+					'height'    => absint( $size[1] ),
+					'extension' => strtolower( (string) pathinfo( $real_path, PATHINFO_EXTENSION ) ),
+					'filename'  => sanitize_file_name( (string) pathinfo( $real_path, PATHINFO_FILENAME ) ),
+					'mtime'     => filemtime( $real_path ),
+				)
 			);
 		}
 
-		return array();
+		return $this->cache_source( $normalized_url, array() );
+	}
+
+	/**
+	 * Store one bounded request-local source lookup.
+	 *
+	 * @param string $normalized_url Normalized source URL.
+	 * @param array  $source         Resolved source or empty result.
+	 * @return array
+	 */
+	private function cache_source( string $normalized_url, array $source ): array {
+		if ( count( $this->source_cache ) >= self::MAX_SOURCE_CACHE ) {
+			array_shift( $this->source_cache );
+		}
+
+		$this->source_cache[ $normalized_url ] = $source;
+
+		return $source;
 	}
 
 	/**
@@ -494,30 +672,14 @@ final class Asset_Manager {
 	}
 
 	/**
-	 * Detect animated GIFs so resizing does not silently drop animation.
-	 *
-	 * @param string $path GIF path.
-	 * @return bool
-	 */
-	private function is_animated_gif( string $path ): bool {
-		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads a bounded local binary file, not a URL.
-		$contents = file_get_contents( $path, false, null, 0, 1048576 );
-
-		if ( ! is_string( $contents ) ) {
-			return false;
-		}
-
-		return preg_match_all( '#\x00\x21\xF9\x04#s', $contents ) > 1;
-	}
-
-	/**
 	 * Normalize target physical widths.
 	 *
-	 * @param array $widths Source widths.
-	 * @param int   $source_width Source width.
+	 * @param array $widths         Source widths.
+	 * @param int   $source_width   Source width.
+	 * @param bool  $include_source Whether to add the original source width.
 	 * @return array
 	 */
-	private function normalize_target_widths( array $widths, int $source_width ): array {
+	private function normalize_target_widths( array $widths, int $source_width, bool $include_source ): array {
 		$normalized = array();
 
 		foreach ( $widths as $width ) {
@@ -528,8 +690,11 @@ final class Asset_Manager {
 			}
 		}
 
-		$normalized[] = $source_width;
-		$normalized   = array_values( array_unique( array_filter( $normalized ) ) );
+		if ( $include_source ) {
+			$normalized[] = $source_width;
+		}
+
+		$normalized = array_values( array_unique( array_filter( $normalized ) ) );
 		sort( $normalized );
 
 		return $normalized;
@@ -705,7 +870,7 @@ final class Asset_Manager {
 	 * @param array $slot_widths Slot width map.
 	 * @return string
 	 */
-	private function build_empirical_sizes( array $slot_widths ): string {
+	public function build_empirical_sizes( array $slot_widths ): string {
 		$slots = array();
 
 		foreach ( $slot_widths as $viewport => $slot_width ) {

@@ -36,6 +36,11 @@
 	align-items: center;
 }
 
+.empirical-responsive-images-settings-table__description {
+	margin: 6px 0 0;
+	max-width: 720px;
+}
+
 .empirical-responsive-images-size-table__code,
 .empirical-responsive-images-asset-table__code {
 	white-space: nowrap;
@@ -54,6 +59,32 @@
 
 .empirical-responsive-images-empty-state {
 	margin: 0;
+}
+
+.empirical-responsive-images-visitor-gap-table__target {
+	display: inline-block;
+	max-width: 360px;
+	overflow-wrap: anywhere;
+	white-space: normal;
+}
+
+.empirical-responsive-images-visitor-gap-table__status {
+	display: inline-block;
+	font-weight: 600;
+}
+
+.empirical-responsive-images-visitor-gap-table__status--queued,
+.empirical-responsive-images-visitor-gap-table__status--processing {
+	color: #008a20;
+}
+
+.empirical-responsive-images-visitor-gap-table__status--pending,
+.empirical-responsive-images-visitor-gap-table__status--retry_wait {
+	color: #646970;
+}
+
+.empirical-responsive-images-visitor-gap-table__status--failed {
+	color: #b32d2e;
 }
 
 .empirical-responsive-images-regenerate-control {

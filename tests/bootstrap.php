@@ -19,8 +19,17 @@ $GLOBALS['eri_test_enqueued_scripts']        = array();
 $GLOBALS['eri_test_localized_scripts']       = array();
 $GLOBALS['eri_test_registered_routes']       = array();
 $GLOBALS['eri_test_actions']                 = array();
+$GLOBALS['eri_test_filters']                 = array();
+$GLOBALS['eri_test_cron_events']             = array();
+$GLOBALS['eri_test_attachment_metadata']     = array();
+$GLOBALS['eri_test_attachment_files']        = array();
+$GLOBALS['eri_test_image_attachments']       = array();
+$GLOBALS['eri_test_added_image_sizes']       = array();
+$GLOBALS['eri_test_supported_formats']       = array();
 $GLOBALS['eri_test_siteground_purge_urls']   = array();
 $GLOBALS['eri_test_siteground_purge_all']    = 0;
+$GLOBALS['eri_test_update_option_failures']  = array();
+$GLOBALS['eri_test_getimagesize_calls']      = array();
 $GLOBALS['eri_test_uploads'] = array(
 	'basedir' => __DIR__ . '/runtime/uploads',
 	'baseurl' => 'https://example.test/uploads',
@@ -33,8 +42,21 @@ function eri_test_reset_state(): void {
 	$GLOBALS['eri_test_localized_scripts']       = array();
 	$GLOBALS['eri_test_registered_routes']       = array();
 	$GLOBALS['eri_test_actions']                 = array();
+	$GLOBALS['eri_test_filters']                 = array();
+	$GLOBALS['eri_test_cron_events']             = array();
+	$GLOBALS['eri_test_attachment_metadata']     = array();
+	$GLOBALS['eri_test_attachment_files']        = array();
+	$GLOBALS['eri_test_image_attachments']       = array();
+	$GLOBALS['eri_test_added_image_sizes']       = array();
+	$GLOBALS['eri_test_supported_formats']       = array();
 	$GLOBALS['eri_test_siteground_purge_urls']   = array();
 	$GLOBALS['eri_test_siteground_purge_all']    = 0;
+	$GLOBALS['eri_test_update_option_failures']  = array();
+	$GLOBALS['eri_test_getimagesize_calls']      = array();
+	$GLOBALS['eri_test_uploads']                 = array(
+		'basedir' => __DIR__ . '/runtime/uploads',
+		'baseurl' => 'https://example.test/uploads',
+	);
 }
 
 function absint( $value ): int {
@@ -55,6 +77,11 @@ function add_option( string $name, $value, string $deprecated = '', bool $autolo
 }
 
 function update_option( string $name, $value, $autoload = null ): bool {
+	if ( ! empty( $GLOBALS['eri_test_update_option_failures'][ $name ] ) ) {
+		--$GLOBALS['eri_test_update_option_failures'][ $name ];
+		return false;
+	}
+
 	$GLOBALS['eri_test_options'][ $name ] = $value;
 	return true;
 }
@@ -100,6 +127,10 @@ function home_url( string $path = '' ): string {
 	return 'https://example.test' . ( '/' === $path ? '/' : '/' . ltrim( $path, '/' ) );
 }
 
+function get_current_blog_id(): int {
+	return 1;
+}
+
 function site_url( string $path = '' ): string {
 	return home_url( $path );
 }
@@ -112,8 +143,16 @@ function trailingslashit( string $value ): string {
 	return rtrim( $value, '/\\' ) . '/';
 }
 
+function untrailingslashit( string $value ): string {
+	return rtrim( $value, '/\\' );
+}
+
 function wp_generate_uuid4(): string {
 	return sprintf( '00000000-0000-4000-8000-%012d', count( $GLOBALS['eri_test_options'] ) + 1 );
+}
+
+function wp_salt( string $scheme = 'auth' ): string {
+	return 'test-salt-' . sanitize_key( $scheme );
 }
 
 function wp_normalize_path( string $path ): string {
@@ -148,15 +187,71 @@ function wp_check_filetype( string $path ): array {
 }
 
 function wp_getimagesize( string $path ) {
+	$GLOBALS['eri_test_getimagesize_calls'][ $path ] = ( $GLOBALS['eri_test_getimagesize_calls'][ $path ] ?? 0 ) + 1;
+
 	return getimagesize( $path );
 }
 
-function apply_filters( string $hook_name, $value ) {
+function wp_image_editor_supports( array $args ): bool {
+	$mime_type = sanitize_text_field( $args['mime_type'] ?? '' );
+
+	return ! empty( $GLOBALS['eri_test_supported_formats'][ $mime_type ] );
+}
+
+function wp_json_encode( $value ): string {
+	$encoded = json_encode( $value );
+
+	return is_string( $encoded ) ? $encoded : '';
+}
+
+function add_filter( string $hook_name, callable $callback, int $priority = 10, int $accepted_args = 1 ): bool {
+	$GLOBALS['eri_test_filters'][ $hook_name ][ $priority ][] = array(
+		'callback'      => $callback,
+		'accepted_args' => $accepted_args,
+	);
+
+	return true;
+}
+
+function remove_filter( string $hook_name, callable $callback, int $priority = 10 ): bool {
+	if ( empty( $GLOBALS['eri_test_filters'][ $hook_name ][ $priority ] ) ) {
+		return false;
+	}
+
+	foreach ( $GLOBALS['eri_test_filters'][ $hook_name ][ $priority ] as $index => $registered ) {
+		if ( $registered['callback'] === $callback ) {
+			unset( $GLOBALS['eri_test_filters'][ $hook_name ][ $priority ][ $index ] );
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function apply_filters( string $hook_name, $value, ...$args ) {
+	if ( empty( $GLOBALS['eri_test_filters'][ $hook_name ] ) ) {
+		return $value;
+	}
+
+	ksort( $GLOBALS['eri_test_filters'][ $hook_name ] );
+
+	foreach ( $GLOBALS['eri_test_filters'][ $hook_name ] as $callbacks ) {
+		foreach ( $callbacks as $registered ) {
+			$arguments = array_slice( array_merge( array( $value ), $args ), 0, $registered['accepted_args'] );
+			$value     = $registered['callback']( ...$arguments );
+		}
+	}
+
 	return $value;
+}
+
+function add_action( string $hook_name, callable $callback, int $priority = 10, int $accepted_args = 1 ): bool {
+	return add_filter( $hook_name, $callback, $priority, $accepted_args );
 }
 
 function do_action( string $hook_name, ...$args ): void {
 	$GLOBALS['eri_test_actions'][] = array( $hook_name, $args );
+	apply_filters( $hook_name, null, ...$args );
 }
 
 function current_user_can( string $capability ): bool {
@@ -189,6 +284,69 @@ function wp_create_nonce( string $action = '-1' ): string {
 	return 'test-nonce-' . sanitize_key( $action );
 }
 
+function wp_attachment_is_image( int $attachment_id ): bool {
+	return ! empty( $GLOBALS['eri_test_image_attachments'][ $attachment_id ] );
+}
+
+function wp_get_attachment_metadata( int $attachment_id ) {
+	return $GLOBALS['eri_test_attachment_metadata'][ $attachment_id ] ?? false;
+}
+
+function wp_update_attachment_metadata( int $attachment_id, array $metadata ): bool {
+	$GLOBALS['eri_test_attachment_metadata'][ $attachment_id ] = $metadata;
+
+	return true;
+}
+
+function get_attached_file( int $attachment_id ) {
+	return $GLOBALS['eri_test_attachment_files'][ $attachment_id ] ?? false;
+}
+
+function add_image_size( string $name, int $width = 0, int $height = 0, $crop = false ): void {
+	$GLOBALS['eri_test_added_image_sizes'][ $name ] = compact( 'width', 'height', 'crop' );
+}
+
+function wp_next_scheduled( string $hook ) {
+	$timestamps = array();
+
+	foreach ( $GLOBALS['eri_test_cron_events'] as $event ) {
+		if ( $hook === $event['hook'] ) {
+			$timestamps[] = $event['timestamp'];
+		}
+	}
+
+	return empty( $timestamps ) ? false : min( $timestamps );
+}
+
+function wp_schedule_single_event( int $timestamp, string $hook, array $args = array(), bool $wp_error = false ) {
+	$GLOBALS['eri_test_cron_events'][] = compact( 'timestamp', 'hook', 'args' ) + array(
+		'recurrence' => '',
+	);
+
+	return true;
+}
+
+function wp_schedule_event( int $timestamp, string $recurrence, string $hook, array $args = array(), bool $wp_error = false ) {
+	$GLOBALS['eri_test_cron_events'][] = compact( 'timestamp', 'recurrence', 'hook', 'args' );
+
+	return true;
+}
+
+function wp_clear_scheduled_hook( string $hook, array $args = array(), bool $wp_error = false ) {
+	$removed = 0;
+
+	foreach ( $GLOBALS['eri_test_cron_events'] as $index => $event ) {
+		if ( $hook === $event['hook'] ) {
+			unset( $GLOBALS['eri_test_cron_events'][ $index ] );
+			++$removed;
+		}
+	}
+
+	$GLOBALS['eri_test_cron_events'] = array_values( $GLOBALS['eri_test_cron_events'] );
+
+	return $removed;
+}
+
 function esc_attr( string $value ): string {
 	return htmlspecialchars( $value, ENT_QUOTES, 'UTF-8' );
 }
@@ -197,6 +355,14 @@ function register_rest_route( string $namespace, string $route, array $args = ar
 	$GLOBALS['eri_test_registered_routes'][ $namespace . $route ] = compact( 'namespace', 'route', 'args', 'override' );
 
 	return true;
+}
+
+function rest_ensure_response( $data ): WP_REST_Response {
+	return $data instanceof WP_REST_Response ? $data : new WP_REST_Response( $data );
+}
+
+function __( string $text, string $domain = 'default' ): string {
+	return $text;
 }
 
 function sg_cachepress_purge_cache( $url = false ): bool {
@@ -219,7 +385,100 @@ function set_url_scheme( string $url, ?string $scheme = null ): string {
 	return preg_replace( '#^https?://#', ( $scheme ?: 'https' ) . '://', $url ) ?: $url;
 }
 
-class WP_Error {}
+class WP_Error {
+	/**
+	 * Error code.
+	 *
+	 * @var string
+	 */
+	private $code;
+
+	/**
+	 * Error data.
+	 *
+	 * @var mixed
+	 */
+	private $data;
+
+	public function __construct( string $code = '', string $message = '', $data = null ) {
+		$this->code = $code;
+		$this->data = $data;
+	}
+
+	public function get_error_code(): string {
+		return $this->code;
+	}
+
+	public function get_error_data() {
+		return $this->data;
+	}
+
+	public function get_error_message(): string {
+		return $this->code;
+	}
+}
+
+class WP_REST_Response {
+	/**
+	 * Response data.
+	 *
+	 * @var mixed
+	 */
+	private $data;
+
+	public function __construct( $data = null ) {
+		$this->data = $data;
+	}
+
+	public function get_data() {
+		return $this->data;
+	}
+}
+
+class WP_REST_Request {
+	/**
+	 * Raw body.
+	 *
+	 * @var string
+	 */
+	private $body = '';
+
+	/**
+	 * Request headers.
+	 *
+	 * @var array
+	 */
+	private $headers = array();
+
+	/**
+	 * JSON parameters.
+	 *
+	 * @var array
+	 */
+	private $json_params = array();
+
+	public function set_body( string $body ): void {
+		$this->body        = $body;
+		$decoded           = json_decode( $body, true );
+		$this->json_params = is_array( $decoded ) ? $decoded : array();
+	}
+
+	public function get_body(): string {
+		return $this->body;
+	}
+
+	public function set_header( string $name, string $value ): void {
+		$this->headers[ strtolower( $name ) ] = $value;
+	}
+
+	public function get_header( string $name ): string {
+		return (string) ( $this->headers[ strtolower( $name ) ] ?? '' );
+	}
+
+	public function get_json_params(): array {
+		return $this->json_params;
+	}
+}
 
 class WP_REST_Server {
 	public const READABLE  = 'GET';
@@ -227,11 +486,15 @@ class WP_REST_Server {
 }
 
 require_once dirname( __DIR__ ) . '/includes/class-settings.php';
+require_once dirname( __DIR__ ) . '/includes/class-option-lock.php';
 require_once dirname( __DIR__ ) . '/includes/class-alpha-compat.php';
 require_once dirname( __DIR__ ) . '/includes/class-asset-manager.php';
 require_once dirname( __DIR__ ) . '/includes/class-observation-store.php';
+require_once dirname( __DIR__ ) . '/includes/class-visitor-gap-target.php';
+require_once dirname( __DIR__ ) . '/includes/class-visitor-gap-store.php';
 require_once dirname( __DIR__ ) . '/includes/class-format-generator.php';
 require_once dirname( __DIR__ ) . '/includes/class-image-sizes.php';
 require_once dirname( __DIR__ ) . '/includes/class-cache-compat.php';
 require_once dirname( __DIR__ ) . '/includes/class-regenerator.php';
+require_once dirname( __DIR__ ) . '/includes/class-background-optimizer.php';
 require_once dirname( __DIR__ ) . '/includes/class-rest-controller.php';

@@ -39,5 +39,6 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: composer phpcs
       - run: composer phpstan
+      - run: composer test:js
       - run: composer review:readiness
       - run: tools/check-version-sync.sh

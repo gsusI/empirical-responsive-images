@@ -15,9 +15,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Stores aggregate rendered image slot observations.
  */
 final class Observation_Store {
-	public const OPTION_NAME        = 'empirical_responsive_images_observations';
-	private const WRITE_LOCK_OPTION = 'empirical_responsive_images_observations_lock';
-	private const WRITE_LOCK_TTL    = 15;
+	public const OPTION_NAME                 = 'empirical_responsive_images_observations';
+	private const WRITE_LOCK_OPTION          = 'empirical_responsive_images_observations_lock';
+	private const WRITE_LOCK_TTL             = 15;
+	private const MAX_AUTOMATIC_ASSET_WIDTHS = 38;
+	private const MAX_SLOT_WIDTHS_PER_TARGET = 40;
 
 	/**
 	 * Token owned by the current request's write lock.
@@ -60,15 +62,16 @@ final class Observation_Store {
 	 */
 	public function empty_data(): array {
 		return array(
-			'version'    => 3,
-			'updated_at' => 0,
-			'totals'     => array(
+			'version'          => 3,
+			'updated_at'       => 0,
+			'totals'           => array(
 				'observations' => 0,
 				'payloads'     => 0,
 			),
-			'pages'      => array(),
-			'sizes'      => array(),
-			'assets'     => array(),
+			'pages'            => array(),
+			'sizes'            => array(),
+			'assets'           => array(),
+			'attachment_slots' => array(),
 		);
 	}
 
@@ -96,6 +99,10 @@ final class Observation_Store {
 
 		if ( ! is_array( $data['assets'] ) ) {
 			$data['assets'] = array();
+		}
+
+		if ( ! is_array( $data['attachment_slots'] ) ) {
+			$data['attachment_slots'] = array();
 		}
 
 		return $data;
@@ -169,23 +176,30 @@ final class Observation_Store {
 	 * @return void
 	 */
 	public function invalidate_cache_readiness( string $reason ): void {
-		$data   = $this->get_data();
-		$reason = sanitize_key( $reason );
-
-		foreach ( $data['pages'] as $page_key => $page ) {
-			if ( ! is_array( $page ) ) {
-				continue;
-			}
-
-			$page['status']              = 'blocked';
-			$page['ready_confirmations'] = 0;
-			$page['last_reason']         = '' !== $reason ? $reason : 'invalidated';
-			$data['pages'][ $page_key ]  = $page;
+		if ( ! $this->acquire_write_lock() ) {
+			return;
 		}
 
-		$data['updated_at'] = time();
+		try {
+			$data   = $this->get_data();
+			$reason = sanitize_key( $reason );
 
-		update_option( self::OPTION_NAME, $data, false );
+			foreach ( $data['pages'] as $page_key => $page ) {
+				if ( ! is_array( $page ) ) {
+					continue;
+				}
+
+				$page['status']              = 'blocked';
+				$page['ready_confirmations'] = 0;
+				$page['last_reason']         = '' !== $reason ? $reason : 'invalidated';
+				$data['pages'][ $page_key ]  = $page;
+			}
+
+			$data['updated_at'] = time();
+			$this->persist_locked_data( $data );
+		} finally {
+			$this->release_write_lock();
+		}
 	}
 
 	/**
@@ -304,6 +318,28 @@ final class Observation_Store {
 	}
 
 	/**
+	 * Get bounded visitor-learned CSS slot widths for one attachment.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return array
+	 */
+	public function get_attachment_slot_widths( int $attachment_id ): array {
+		if ( $attachment_id < 1 ) {
+			return array();
+		}
+
+		$data  = $this->get_data();
+		$key   = (string) $attachment_id;
+		$entry = isset( $data['attachment_slots'][ $key ] ) && is_array( $data['attachment_slots'][ $key ] )
+			? $data['attachment_slots'][ $key ]
+			: array();
+
+		return isset( $entry['slot_widths'] ) && is_array( $entry['slot_widths'] )
+			? $this->sanitize_slot_width_map( $entry['slot_widths'] )
+			: array();
+	}
+
+	/**
 	 * Store observation payload.
 	 *
 	 * @param array    $payload  Sanitized-ish REST payload.
@@ -320,6 +356,199 @@ final class Observation_Store {
 
 		try {
 			return $this->record_payload_unlocked( $payload, $settings );
+		} finally {
+			$this->release_write_lock();
+		}
+	}
+
+	/**
+	 * Record one bounded visitor-learned width for a manageable local asset.
+	 *
+	 * Measured asset metadata remains authoritative and unchanged. Automatic
+	 * widths are tracked separately and merged into generation candidates.
+	 *
+	 * @param string $url            Manageable local asset URL.
+	 * @param int    $width          Target width.
+	 * @param int    $viewport_width Coarse viewport bucket.
+	 * @param int    $slot_width     Coarse rendered slot bucket.
+	 * @return bool Whether the width is registered and ready for rendering.
+	 */
+	public function record_automatic_asset_width( string $url, int $width, int $viewport_width = 0, int $slot_width = 0 ): bool {
+		$width          = absint( $width );
+		$viewport_width = min( 5120, absint( $viewport_width ) );
+		$slot_width     = min( 5120, absint( $slot_width ) );
+
+		if ( null === $this->asset_manager || $width < 1 ) {
+			return false;
+		}
+
+		$key = $this->asset_manager->key_for_url( $url );
+
+		if ( '' === $key ) {
+			return false;
+		}
+
+		if ( ! $this->acquire_write_lock() ) {
+			return false;
+		}
+
+		try {
+			$data      = $this->get_data();
+			$now       = time();
+			$width_key = 'w' . $width;
+			$entry     = isset( $data['assets'][ $key ] ) && is_array( $data['assets'][ $key ] )
+				? $data['assets'][ $key ]
+				: array(
+					'url'                     => esc_url_raw( $url ),
+					'count'                   => 0,
+					'first_seen'              => $now,
+					'last_seen'               => 0,
+					'natural_width'           => $this->asset_manager->source_width_for_url( $url ),
+					'target_widths'           => array(),
+					'automatic_target_widths' => array(),
+					'slot_widths'             => array(),
+					'pages'                   => array(),
+				);
+
+			$entry['target_widths'] = is_array( $entry['target_widths'] ?? null ) ? $entry['target_widths'] : array();
+			$automatic_widths       = is_array( $entry['automatic_target_widths'] ?? null ) ? $entry['automatic_target_widths'] : array();
+			$automatic_widths       = array_filter(
+				array_map( 'absint', $automatic_widths )
+			);
+			$automatic_widths       = array_slice( $automatic_widths, 0, self::MAX_AUTOMATIC_ASSET_WIDTHS, true );
+			$source_width           = absint( $entry['natural_width'] ?? 0 );
+			$needs_registration     = $source_width < 1 || $width < $source_width;
+			$already_registered     = isset( $entry['target_widths'][ $width_key ] ) || ! $needs_registration;
+			$has_layout_hint        = $viewport_width > 0 && $slot_width > 0;
+
+			if ( ! $already_registered && ! $has_layout_hint && count( $automatic_widths ) >= self::MAX_AUTOMATIC_ASSET_WIDTHS ) {
+				return false;
+			}
+
+			if ( ! $already_registered && count( $automatic_widths ) < self::MAX_AUTOMATIC_ASSET_WIDTHS ) {
+				$entry['target_widths'][ $width_key ] = $width;
+				$automatic_widths[ $width_key ]       = $width;
+			}
+
+			$entry['automatic_target_widths'] = $automatic_widths;
+			$entry['count']                   = max( 1, absint( $entry['count'] ?? 0 ) );
+			$entry['last_seen']               = $now;
+
+			if ( $viewport_width > 0 && $slot_width > 0 ) {
+				$entry['slot_widths']                             = is_array( $entry['slot_widths'] ?? null )
+					? $this->sanitize_slot_width_map( $entry['slot_widths'] )
+					: array();
+				$entry['slot_widths'][ (string) $viewport_width ] = max(
+					$slot_width,
+					absint( $entry['slot_widths'][ (string) $viewport_width ] ?? 0 )
+				);
+				ksort( $entry['slot_widths'] );
+				$entry['slot_widths'] = array_slice( $entry['slot_widths'], 0, self::MAX_SLOT_WIDTHS_PER_TARGET, true );
+			}
+
+			$entry['automatic_last_seen'] = $now;
+			$data['assets'][ $key ]       = $entry;
+			$data['updated_at']           = $now;
+
+			ksort( $data['assets'][ $key ]['target_widths'] );
+			ksort( $data['assets'][ $key ]['automatic_target_widths'] );
+			$data['assets'] = $this->trim_assets(
+				$data['assets'],
+				( new Settings() )->get_int( 'max_observed_sizes' ) * 4
+			);
+
+			if ( ! $this->persist_locked_data( $data ) || ! isset( $data['assets'][ $key ] ) ) {
+				return false;
+			}
+
+			return isset( $data['assets'][ $key ]['target_widths'][ $width_key ] )
+				|| ! $needs_registration
+				|| $has_layout_hint;
+		} finally {
+			$this->release_write_lock();
+		}
+	}
+
+	/**
+	 * Record one bounded visitor-learned attachment layout.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @param int $viewport_width Coarse viewport bucket.
+	 * @param int $slot_width Coarse rendered slot bucket.
+	 * @return bool Whether the exact layout record is durable.
+	 */
+	public function record_automatic_attachment_slot( int $attachment_id, int $viewport_width, int $slot_width ): bool {
+		$attachment_id  = absint( $attachment_id );
+		$viewport_width = min( 5120, absint( $viewport_width ) );
+		$slot_width     = min( 5120, absint( $slot_width ) );
+
+		if ( $attachment_id < 1 || $viewport_width < 1 || $slot_width < 1 || ! wp_attachment_is_image( $attachment_id ) ) {
+			return false;
+		}
+
+		if ( ! $this->acquire_write_lock() ) {
+			return false;
+		}
+
+		try {
+			$data  = $this->get_data();
+			$now   = time();
+			$key   = (string) $attachment_id;
+			$entry = isset( $data['attachment_slots'][ $key ] ) && is_array( $data['attachment_slots'][ $key ] )
+				? $data['attachment_slots'][ $key ]
+				: array(
+					'slot_widths' => array(),
+					'last_seen'   => 0,
+				);
+
+			$entry['slot_widths']                             = is_array( $entry['slot_widths'] ?? null )
+				? $this->sanitize_slot_width_map( $entry['slot_widths'] )
+				: array();
+			$entry['slot_widths'][ (string) $viewport_width ] = max(
+				$slot_width,
+				absint( $entry['slot_widths'][ (string) $viewport_width ] ?? 0 )
+			);
+			ksort( $entry['slot_widths'] );
+			$entry['slot_widths'] = array_slice( $entry['slot_widths'], 0, self::MAX_SLOT_WIDTHS_PER_TARGET, true );
+			$entry['last_seen']   = $now;
+
+			$data['attachment_slots'][ $key ] = $entry;
+			$data['attachment_slots']         = $this->trim_attachment_slots(
+				$data['attachment_slots'],
+				( new Settings() )->get_int( 'max_observed_sizes' ) * 4
+			);
+			$data['updated_at']               = $now;
+
+			return $this->persist_locked_data( $data )
+				&& isset( $data['attachment_slots'][ $key ]['slot_widths'][ (string) $viewport_width ] );
+		} finally {
+			$this->release_write_lock();
+		}
+	}
+
+	/**
+	 * Remove visitor-learned layout data when an attachment is deleted.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return void
+	 */
+	public function delete_attachment_slots( int $attachment_id ): void {
+		$key = (string) absint( $attachment_id );
+
+		if ( '0' === $key || ! $this->acquire_write_lock() ) {
+			return;
+		}
+
+		try {
+			$data = $this->get_data();
+
+			if ( ! isset( $data['attachment_slots'][ $key ] ) ) {
+				return;
+			}
+
+			unset( $data['attachment_slots'][ $key ] );
+			$data['updated_at'] = time();
+			$this->persist_locked_data( $data );
 		} finally {
 			$this->release_write_lock();
 		}
@@ -396,7 +625,13 @@ final class Observation_Store {
 		$data                           = $page_update['data'];
 		$data['pages']                  = $this->trim_pages( $data['pages'], $settings->get_int( 'max_observed_pages' ) );
 
-		update_option( self::OPTION_NAME, $data, false );
+		if ( ! $this->persist_locked_data( $data ) ) {
+			return array(
+				'accepted'      => 0,
+				'busy'          => true,
+				'storage_error' => true,
+			);
+		}
 
 		return array(
 			'accepted'       => $seen,
@@ -430,6 +665,7 @@ final class Observation_Store {
 			'pages'       => array(),
 			'attachments' => array(),
 			'assets'      => array(),
+			'source'      => 'measured',
 		);
 	}
 
@@ -444,6 +680,7 @@ final class Observation_Store {
 	private function merge_observation( array $entry, array $observation, string $page_path ): array {
 		$entry['count']      = absint( $entry['count'] ?? 0 ) + 1;
 		$entry['last_seen']  = time();
+		$entry['source']     = 'measured';
 		$entry['min_height'] = min( absint( $entry['min_height'] ?? $observation['height'] ), $observation['height'] );
 		$entry['max_height'] = max( absint( $entry['max_height'] ?? $observation['height'] ), $observation['height'] );
 
@@ -482,14 +719,15 @@ final class Observation_Store {
 		$entry = wp_parse_args(
 			$entry,
 			array(
-				'url'           => '',
-				'count'         => 0,
-				'first_seen'    => $now,
-				'last_seen'     => 0,
-				'natural_width' => 0,
-				'target_widths' => array(),
-				'slot_widths'   => array(),
-				'pages'         => array(),
+				'url'                     => '',
+				'count'                   => 0,
+				'first_seen'              => $now,
+				'last_seen'               => 0,
+				'natural_width'           => 0,
+				'target_widths'           => array(),
+				'automatic_target_widths' => array(),
+				'slot_widths'             => array(),
+				'pages'                   => array(),
 			)
 		);
 
@@ -500,6 +738,7 @@ final class Observation_Store {
 
 		if ( 'w0' !== $target_key ) {
 			$entry['target_widths'][ $target_key ] = absint( $observation['width'] ?? 0 );
+			unset( $entry['automatic_target_widths'][ $target_key ] );
 		}
 
 		if ( $viewport_width > 0 && $rendered_width > 0 ) {
@@ -644,34 +883,25 @@ final class Observation_Store {
 	 * @return bool
 	 */
 	private function acquire_write_lock(): bool {
-		$now   = time();
-		$token = wp_generate_uuid4();
-		$lock  = array(
-			'token'      => $token,
-			'created_at' => $now,
-		);
+		$this->write_lock_token = Option_Lock::acquire( self::WRITE_LOCK_OPTION, self::WRITE_LOCK_TTL );
 
-		if ( add_option( self::WRITE_LOCK_OPTION, $lock, '', false ) ) {
-			$this->write_lock_token = $token;
-			return true;
-		}
+		return '' !== $this->write_lock_token;
+	}
 
-		$current    = get_option( self::WRITE_LOCK_OPTION, array() );
-		$created_at = is_array( $current ) ? absint( $current['created_at'] ?? 0 ) : absint( $current );
-
-		if ( $created_at > 0 && $created_at > $now - self::WRITE_LOCK_TTL ) {
+	/**
+	 * Persist data only while this request still owns a renewed write lock.
+	 *
+	 * @param array $data Complete observation data.
+	 * @return bool Whether the exact state is durable.
+	 */
+	private function persist_locked_data( array $data ): bool {
+		if ( ! Option_Lock::refresh( self::WRITE_LOCK_OPTION, $this->write_lock_token, self::WRITE_LOCK_TTL ) ) {
 			return false;
 		}
 
-		delete_option( self::WRITE_LOCK_OPTION );
+		update_option( self::OPTION_NAME, $data, false );
 
-		if ( ! add_option( self::WRITE_LOCK_OPTION, $lock, '', false ) ) {
-			return false;
-		}
-
-		$this->write_lock_token = $token;
-
-		return true;
+		return get_option( self::OPTION_NAME, null ) === $data;
 	}
 
 	/**
@@ -680,12 +910,7 @@ final class Observation_Store {
 	 * @return void
 	 */
 	private function release_write_lock(): void {
-		$current = get_option( self::WRITE_LOCK_OPTION, array() );
-
-		if ( is_array( $current ) && hash_equals( $this->write_lock_token, (string) ( $current['token'] ?? '' ) ) ) {
-			delete_option( self::WRITE_LOCK_OPTION );
-		}
-
+		Option_Lock::release( self::WRITE_LOCK_OPTION, $this->write_lock_token );
 		$this->write_lock_token = '';
 	}
 
@@ -897,7 +1122,11 @@ final class Observation_Store {
 		uasort(
 			$sizes,
 			static function ( array $a, array $b ): int {
-				return absint( $b['count'] ?? 0 ) <=> absint( $a['count'] ?? 0 );
+				$count_order = absint( $b['count'] ?? 0 ) <=> absint( $a['count'] ?? 0 );
+
+				return 0 !== $count_order
+					? $count_order
+					: absint( $b['last_seen'] ?? 0 ) <=> absint( $a['last_seen'] ?? 0 );
 			}
 		);
 
@@ -915,11 +1144,39 @@ final class Observation_Store {
 		uasort(
 			$assets,
 			static function ( array $a, array $b ): int {
-				return absint( $b['count'] ?? 0 ) <=> absint( $a['count'] ?? 0 );
+				$automatic_order = absint( $b['automatic_last_seen'] ?? 0 ) <=> absint( $a['automatic_last_seen'] ?? 0 );
+
+				if ( 0 !== $automatic_order ) {
+					return $automatic_order;
+				}
+
+				$count_order = absint( $b['count'] ?? 0 ) <=> absint( $a['count'] ?? 0 );
+
+				return 0 !== $count_order
+					? $count_order
+					: absint( $b['last_seen'] ?? 0 ) <=> absint( $a['last_seen'] ?? 0 );
 			}
 		);
 
 		return array_slice( $assets, 0, max( 20, $limit ), true );
+	}
+
+	/**
+	 * Keep the most recently learned attachment layout records.
+	 *
+	 * @param array $attachments Attachment slot records.
+	 * @param int   $limit       Maximum records.
+	 * @return array
+	 */
+	private function trim_attachment_slots( array $attachments, int $limit ): array {
+		uasort(
+			$attachments,
+			static function ( array $a, array $b ): int {
+				return absint( $b['last_seen'] ?? 0 ) <=> absint( $a['last_seen'] ?? 0 );
+			}
+		);
+
+		return array_slice( $attachments, 0, max( 20, $limit ), true );
 	}
 
 	/**

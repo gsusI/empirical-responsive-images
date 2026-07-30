@@ -2,21 +2,21 @@
 # This file is distributed under the GPLv2 or later.
 msgid ""
 msgstr ""
-"Project-Id-Version: Empirical Responsive Images 0.2.0\n"
+"Project-Id-Version: Empirical Responsive Images 0.3.0\n"
 "Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/empirical-responsive-images\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-07-19T09:44:48+00:00\n"
+"POT-Creation-Date: 2026-07-30T19:50:51+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: empirical-responsive-images\n"
 
 #. Plugin Name of the plugin
 #: empirical-responsive-images.php
-#: includes/class-admin-page.php:138
+#: includes/class-admin-page.php:148
 msgid "Empirical Responsive Images"
 msgstr ""
 
@@ -40,214 +40,323 @@ msgstr ""
 msgid "https://wesolvers.com/"
 msgstr ""
 
-#: includes/class-admin-page.php:66
-#: includes/class-admin-page.php:67
+#: includes/class-admin-page.php:75
+#: includes/class-admin-page.php:76
 msgid "Responsive Images"
 msgstr ""
 
-#: includes/class-admin-page.php:108
+#: includes/class-admin-page.php:117
 msgid "Starting regeneration..."
 msgstr ""
 
 #. translators: 1: processed image records, 2: total image records, 3: generated files.
-#: includes/class-admin-page.php:110
+#: includes/class-admin-page.php:119
 #, php-format
 msgid "Processed %1$d of %2$d image records. Generated %3$d files."
 msgstr ""
 
 #. translators: 1: processed image records, 2: generated files.
-#: includes/class-admin-page.php:112
+#: includes/class-admin-page.php:121
 #, php-format
 msgid "Done. Processed %1$d image records. Generated %2$d files."
 msgstr ""
 
 #. translators: 1: processed image records, 2: generated files, 3: errors.
-#: includes/class-admin-page.php:114
+#: includes/class-admin-page.php:123
 #, php-format
 msgid "Done with errors. Processed %1$d image records. Generated %2$d files. %3$d errors need review."
 msgstr ""
 
-#: includes/class-admin-page.php:115
+#: includes/class-admin-page.php:124
 msgid "Regeneration failed."
 msgstr ""
 
-#: includes/class-admin-page.php:141
+#: includes/class-admin-page.php:151
 msgid "Observed image slots"
 msgstr ""
 
-#: includes/class-admin-page.php:143
-msgid "For security, the front-end observer runs only for logged-in administrators. It records aggregate rendered image widths, DPR, viewport widths, attachment IDs, and page paths."
+#: includes/class-admin-page.php:153
+msgid "Automatic learning uses signed local image targets and fixed width buckets. It stores no page URL, cookie, IP address, user agent, or visitor identity."
 msgstr ""
 
-#: includes/class-admin-page.php:147
+#: includes/class-admin-page.php:157
 msgid "Payloads"
 msgstr ""
 
-#: includes/class-admin-page.php:151
+#: includes/class-admin-page.php:161
 msgid "Image observations"
 msgstr ""
 
-#: includes/class-admin-page.php:155
-#: includes/class-admin-page.php:210
+#: includes/class-admin-page.php:165
+#: includes/class-admin-page.php:246
 msgid "Registered empirical sizes"
 msgstr ""
 
-#: includes/class-admin-page.php:159
-#: includes/class-admin-page.php:215
+#: includes/class-admin-page.php:169
+#: includes/class-admin-page.php:251
 msgid "Observed local assets"
 msgstr ""
 
-#: includes/class-admin-page.php:166
+#: includes/class-admin-page.php:173
+msgid "Automatic learning jobs"
+msgstr ""
+
+#: includes/class-admin-page.php:180
 msgid "Modern format support"
 msgstr ""
 
-#: includes/class-admin-page.php:175
+#: includes/class-admin-page.php:189
 msgid "enabled and supported"
 msgstr ""
 
-#: includes/class-admin-page.php:175
+#: includes/class-admin-page.php:189
 msgid "enabled but not supported by this server"
 msgstr ""
 
-#: includes/class-admin-page.php:176
+#: includes/class-admin-page.php:190
 msgid "disabled"
 msgstr ""
 
-#: includes/class-admin-page.php:188
+#: includes/class-admin-page.php:202
 msgid "Settings"
 msgstr ""
 
-#: includes/class-admin-page.php:191
+#: includes/class-admin-page.php:205
 msgid "Collect rendered image sizes"
 msgstr ""
 
-#: includes/class-admin-page.php:192
-msgid "Prevent page caching until image sizes are confirmed"
+#: includes/class-admin-page.php:209
+msgid "Automatically learn and generate uncovered image sizes"
 msgstr ""
 
-#: includes/class-admin-page.php:193
+#: includes/class-admin-page.php:211
+msgid "Enabled by default. Covered images send nothing. Repeated target-bound gaps are generated automatically in bounded background jobs."
+msgstr ""
+
+#: includes/class-admin-page.php:217
+msgid "Use the legacy page cache guard when automatic learning is disabled"
+msgstr ""
+
+#: includes/class-admin-page.php:219
+msgid "Automatic learning handles stale markup with a cache purge after successful background generation."
+msgstr ""
+
+#: includes/class-admin-page.php:222
 msgid "Serve generated WebP/AVIF through picture sources"
 msgstr ""
 
-#: includes/class-admin-page.php:194
+#: includes/class-admin-page.php:223
 msgid "Generate responsive variants for local theme and plugin asset images"
 msgstr ""
 
-#: includes/class-admin-page.php:195
+#: includes/class-admin-page.php:224
 msgid "Generate WebP sidecars when supported"
 msgstr ""
 
-#: includes/class-admin-page.php:196
+#: includes/class-admin-page.php:225
 msgid "Generate AVIF sidecars when supported"
 msgstr ""
 
-#: includes/class-admin-page.php:197
+#: includes/class-admin-page.php:226
 msgid "Stable uncached runs before caching"
 msgstr ""
 
-#: includes/class-admin-page.php:198
+#: includes/class-admin-page.php:227
 msgid "Measurement sample rate"
 msgstr ""
 
-#: includes/class-admin-page.php:199
+#: includes/class-admin-page.php:228
 msgid "Round observed widths to nearest pixels"
 msgstr ""
 
-#: includes/class-admin-page.php:200
+#: includes/class-admin-page.php:229
 msgid "Minimum rendered image width to observe"
 msgstr ""
 
-#: includes/class-admin-page.php:201
+#: includes/class-admin-page.php:230
 msgid "Maximum registered width"
 msgstr ""
 
-#: includes/class-admin-page.php:202
-msgid "Delete observations, settings, and generated asset files when uninstalling"
+#: includes/class-admin-page.php:231
+msgid "Confirmation windows before automatic optimization"
 msgstr ""
 
-#: includes/class-admin-page.php:205
+#: includes/class-admin-page.php:232
+msgid "Delete observations, settings, and plugin-generated image files when uninstalling"
+msgstr ""
+
+#: includes/class-admin-page.php:235
 msgid "Save settings"
 msgstr ""
 
-#: includes/class-admin-page.php:220
+#: includes/class-admin-page.php:240
+msgid "Automatic learning queue"
+msgstr ""
+
+#: includes/class-admin-page.php:241
+msgid "Repeated gaps are verified against their signed local image target, queued, and generated automatically. This table is status only; no approval is required."
+msgstr ""
+
+#: includes/class-admin-page.php:256
 msgid "Regenerate thumbnails"
 msgstr ""
 
-#: includes/class-admin-page.php:221
-msgid "Regenerates missing image subsizes for all image attachments, then creates observed local asset variants and WebP/AVIF sidecars when the server supports them."
+#: includes/class-admin-page.php:257
+msgid "Automatic learning handles new target-specific gaps. This optional maintenance tool rebuilds all known attachment and local asset variants."
 msgstr ""
 
-#: includes/class-admin-page.php:224
+#: includes/class-admin-page.php:260
 msgid "Force rebuild existing metadata and sidecars"
 msgstr ""
 
-#: includes/class-admin-page.php:228
+#: includes/class-admin-page.php:264
 msgid "Regenerate all image variants"
 msgstr ""
 
-#: includes/class-admin-page.php:254
+#: includes/class-admin-page.php:291
 msgid "Enabled"
 msgstr ""
 
-#: includes/class-admin-page.php:295
-msgid "No front-end image observations yet. While logged in as an administrator, visit the site on desktop and mobile, then return here."
-msgstr ""
-
-#: includes/class-admin-page.php:303
-msgid "Image size"
-msgstr ""
-
-#: includes/class-admin-page.php:304
-msgid "Width"
-msgstr ""
-
-#: includes/class-admin-page.php:305
-msgid "Height range"
-msgstr ""
-
-#: includes/class-admin-page.php:306
-#: includes/class-admin-page.php:347
-msgid "Observations"
-msgstr ""
-
-#: includes/class-admin-page.php:307
-msgid "Viewports"
-msgstr ""
-
-#: includes/class-admin-page.php:308
-msgid "DPRs"
-msgstr ""
-
-#: includes/class-admin-page.php:336
-msgid "No manageable local asset images observed yet."
+#: includes/class-admin-page.php:335
+msgid "No uncovered image gaps are waiting. Automatic learning is up to date."
 msgstr ""
 
 #: includes/class-admin-page.php:344
-msgid "Asset"
+msgid "Target"
 msgstr ""
 
 #: includes/class-admin-page.php:345
-msgid "Observed widths"
+#: includes/class-admin-page.php:412
+msgid "Width"
 msgstr ""
 
 #: includes/class-admin-page.php:346
+msgid "Confirmation windows"
+msgstr ""
+
+#: includes/class-admin-page.php:347
+msgid "Last seen"
+msgstr ""
+
+#: includes/class-admin-page.php:348
+msgid "Status"
+msgstr ""
+
+#: includes/class-admin-page.php:358
+msgid "Collecting"
+msgstr ""
+
+#: includes/class-admin-page.php:359
+msgid "Queued"
+msgstr ""
+
+#: includes/class-admin-page.php:360
+msgid "Optimizing"
+msgstr ""
+
+#: includes/class-admin-page.php:361
+msgid "Retry scheduled"
+msgstr ""
+
+#: includes/class-admin-page.php:362
+msgid "Cooling down after errors"
+msgstr ""
+
+#: includes/class-admin-page.php:366
+msgid "Local image"
+msgstr ""
+
+#. translators: %s: human-readable time difference.
+#: includes/class-admin-page.php:375
+#, php-format
+msgid "%s ago"
+msgstr ""
+
+#: includes/class-admin-page.php:378
+msgid "Unknown"
+msgstr ""
+
+#: includes/class-admin-page.php:384
+msgid "Waiting"
+msgstr ""
+
+#: includes/class-admin-page.php:403
+msgid "No optional detailed measurements yet. Automatic target-specific learning runs separately on every front-end visit."
+msgstr ""
+
+#: includes/class-admin-page.php:411
+msgid "Image size"
+msgstr ""
+
+#: includes/class-admin-page.php:413
+msgid "Height range"
+msgstr ""
+
+#: includes/class-admin-page.php:414
+#: includes/class-admin-page.php:459
+msgid "Observations"
+msgstr ""
+
+#: includes/class-admin-page.php:415
+msgid "Viewports"
+msgstr ""
+
+#: includes/class-admin-page.php:416
+msgid "DPRs"
+msgstr ""
+
+#: includes/class-admin-page.php:417
+msgid "Origin"
+msgstr ""
+
+#: includes/class-admin-page.php:430
+msgid "Detailed measurement"
+msgstr ""
+
+#: includes/class-admin-page.php:448
+msgid "No manageable local asset images observed yet."
+msgstr ""
+
+#: includes/class-admin-page.php:456
+msgid "Asset"
+msgstr ""
+
+#: includes/class-admin-page.php:457
+msgid "Observed widths"
+msgstr ""
+
+#: includes/class-admin-page.php:458
 msgid "Observed slots"
 msgstr ""
 
-#: includes/class-asset-manager.php:568
-#: includes/class-asset-manager.php:624
+#: includes/class-asset-manager.php:733
+#: includes/class-asset-manager.php:789
 msgid "Could not create asset image directory."
 msgstr ""
 
-#: includes/class-format-generator.php:93
+#: includes/class-background-optimizer.php:517
+msgid "Attachment source file is unavailable."
+msgstr ""
+
+#: includes/class-background-optimizer.php:523
+msgid "Attachment dimensions are unavailable."
+msgstr ""
+
+#: includes/class-format-generator.php:137
+#: includes/class-format-generator.php:189
 msgid "Original file is missing."
 msgstr ""
 
-#: includes/class-format-generator.php:108
+#: includes/class-format-generator.php:152
+#: includes/class-format-generator.php:208
 msgid "Attachment metadata could not be generated."
 msgstr ""
 
-#: includes/class-format-generator.php:247
+#: includes/class-format-generator.php:181
+msgid "Requested image width is invalid."
+msgstr ""
+
+#: includes/class-format-generator.php:448
 msgid "Could not create sidecar image directory."
 msgstr ""
 
@@ -263,14 +372,46 @@ msgstr ""
 msgid "Attachment %d metadata could not be regenerated."
 msgstr ""
 
-#: includes/class-rest-controller.php:161
+#: includes/class-rest-controller.php:193
+msgid "Visitor image gap payload is too large."
+msgstr ""
+
+#: includes/class-rest-controller.php:203
+msgid "Visitor image gap token is invalid."
+msgstr ""
+
+#: includes/class-rest-controller.php:213
+msgid "Visitor image gap bucket version is invalid."
+msgstr ""
+
+#: includes/class-rest-controller.php:223
+msgid "Visitor image gap payload is invalid."
+msgstr ""
+
+#: includes/class-rest-controller.php:233
+msgid "Visitor image gap payload contains too many targets."
+msgstr ""
+
+#: includes/class-rest-controller.php:250
+msgid "Visitor image gap storage is busy."
+msgstr ""
+
+#: includes/class-rest-controller.php:281
 msgid "Image observation payload is too large."
 msgstr ""
 
-#: includes/class-rest-controller.php:175
+#: includes/class-rest-controller.php:295
 msgid "Image observations must come from this site."
 msgstr ""
 
-#: includes/class-rest-controller.php:185
+#: includes/class-rest-controller.php:305
 msgid "Image observation storage is busy. Retry shortly."
+msgstr ""
+
+#: includes/class-visitor-gap-store.php:983
+msgid "Local asset"
+msgstr ""
+
+#: includes/class-visitor-gap-store.php:1484
+msgid "Background processing timed out."
 msgstr ""
