@@ -8,7 +8,7 @@ It is built for people who want better responsive image output without sending m
 
 - Detects materially uncovered responsive-image widths on every front-end visit by default.
 - Binds every report to a signed local attachment or asset target.
-- Confirms repeated demand, then automatically generates the missing target-specific variant through WP-Cron.
+- Confirms repeated anonymous or Subscriber demand across separate server windows. One valid nonce-authenticated report from a user with `edit_posts` (Contributor, Author, Editor, or Administrator by default) confirms the gap immediately.
 - Optionally collects richer aggregate diagnostics when a logged-in administrator browses the front end; automatic optimization does not depend on this.
 - Stores bounded width and coarse layout evidence in WordPress options.
 - Regenerates target-specific missing attachment sub-sizes automatically, with optional full-library maintenance from the admin screen or WP-CLI.
@@ -56,15 +56,17 @@ That command runs local quality gates, builds the wordpress.org ZIP, runs Plugin
 - Activation is enough. Visitor learning, confirmation, generation, retries, and cache refresh run automatically; the admin screen is status and advanced configuration only.
 - Optional detailed diagnostic writes require an authenticated administrator, a valid WordPress REST nonce, same-site page data, and bounded payloads.
 - Automatic visitor learning is enabled by default for every front-end visitor. Covered images send no report.
+- Anonymous visitors and Subscribers use the configured multi-window confirmation threshold, which defaults to three distinct 15-minute server windows. A Contributor, Author, Editor, Administrator, or custom role with `edit_posts` can confirm a valid gap in one report when the request also carries a valid WordPress REST nonce.
 - Every reported gap carries an HMAC-signed local target. The server re-resolves it, verifies current coverage and source dimensions, and rejects forged, off-site, stale, or already-covered targets.
 - Near matches are treated as covered. Remaining gaps map to a finite canonical width palette instead of creating a new file for each rendered pixel. Automatic widths never exceed 2,560 pixels or their source; attachments also respect WordPress's effective `max_srcset_image_width`.
 - Public requests only record bounded evidence. File generation and cache refresh happen later in a locked, target-specific WP-Cron worker.
-- Safety ceilings include 12 pairs per report; 120 evidence-bearing reports and 256 accepted unique pairs per 15-minute server window; 96 one-confirmation probation entries; 256 simultaneous active jobs and targets; a fixed 38-entry canonical palette per target; 32 recent failure records; and 50 generation attempts per day. Invalid or replay-only requests cannot consume the accepted-work budget.
+- The server derives trusted status from the authenticated WordPress user capability and REST nonce. It ignores client payload fields that claim a trusted role.
+- Safety ceilings include 12 pairs per report; 120 evidence-bearing reports and 256 accepted unique pairs per 15-minute server window; 96 unqualified probation entries; 256 simultaneous active jobs and targets; a fixed 38-entry canonical palette per target; 32 recent failure records; and 50 generation attempts per day. Invalid or replay-only requests cannot consume the accepted-work budget.
 - Background generation pauses automatically before claiming work when the uploads filesystem has less than 256 MiB free. Queued work remains intact and the watchdog checks again later.
-- Extra replays never buy queue priority. Terminal failures cool down for 24 hours, then fresh multi-window evidence can requalify automatically with a clean retry budget.
+- Extra replays never buy queue priority. Terminal failures cool down for 24 hours, then fresh evidence can requalify under the same role-based confirmation rules with a clean retry budget.
 - Low-confidence evidence cannot hold the queue for 30 days: under pressure, missed-window probation entries are replaced by newer demand.
 - The detector remains enabled indefinitely. Thirty days is only a cleanup threshold for stale unconfirmed evidence and terminal failure records. Queued work, successful target history, generated variants, and future learning do not expire under that rule.
-- Visitor payloads contain signed local target handles and canonical width buckets. Eligible targets can also send coarse, bounded viewport and slot buckets so responsive `sizes` hints can converge. Payloads contain no page URL, cookie, IP address, user agent, referrer, or visitor identity.
+- Visitor payloads contain signed local target handles and canonical width buckets. Eligible targets can also send coarse, bounded viewport and slot buckets so responsive `sizes` hints can converge. Anonymous and Subscriber requests omit cookies. Contributor-or-stronger requests use normal same-origin WordPress cookies plus a REST nonce only to prove capability; no user identity, page URL, IP address, user agent, or referrer is stored with gap evidence.
 - Each image advertises its own attainable width and applicable WebP/AVIF formats, preventing impossible or alpha-incompatible work.
 - Author-owned `srcset`, `sizes`, `<picture>` art direction, and cropped attachment renditions remain authoritative instead of being rewritten incorrectly.
 - Automatic resizing is limited to safe JPEG/PNG sources. Potentially animated GIF, WebP, and AVIF sources are not flattened.
