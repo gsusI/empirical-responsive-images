@@ -1,3 +1,11 @@
+= 0.3.2 - 2026-07-31 =
+* Performance - Keep automatic gap-report requests out of initial page navigation by waiting for visitor interaction or page exit.
+* Fixed - Consume visible-page REST response bodies and reserve keepalive transport for the page-exit fallback.
+
+= 0.3.1 - 2026-07-31 =
+* Changed - Drain multiple qualified image jobs during each time-boxed WP-Cron invocation instead of processing only one.
+* Security - Renew worker ownership and recheck upload capacity before every new job while preserving daily, retry, queue, and storage limits.
+
 = 0.3.0 - 2026-07-30 =
 * Added - Automatic visitor gap learning, enabled on activation, for image widths not adequately covered by current srcset candidates.
 * Added - Bind each report to an HMAC-signed attachment or manageable local asset, then generate only that target in a locked WP-Cron worker.

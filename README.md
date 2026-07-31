@@ -60,6 +60,8 @@ That command runs local quality gates, builds the wordpress.org ZIP, runs Plugin
 - Every reported gap carries an HMAC-signed local target. The server re-resolves it, verifies current coverage and source dimensions, and rejects forged, off-site, stale, or already-covered targets.
 - Near matches are treated as covered. Remaining gaps map to a finite canonical width palette instead of creating a new file for each rendered pixel. Automatic widths never exceed 2,560 pixels or their source; attachments also respect WordPress's effective `max_srcset_image_width`.
 - Public requests only record bounded evidence. File generation and cache refresh happen later in a locked, target-specific WP-Cron worker.
+- Front-end measurement performs no initial-navigation request. Uncovered gaps flush only after real visitor interaction or during page exit, and visible-page requests consume their response bodies.
+- Each cron invocation drains qualified work for a bounded 30-second window instead of processing only one image.
 - The server derives trusted status from the authenticated WordPress user capability and REST nonce. It ignores client payload fields that claim a trusted role.
 - Safety ceilings include 12 pairs per report; 120 evidence-bearing reports and 256 accepted unique pairs per 15-minute server window; 96 unqualified probation entries; 256 simultaneous active jobs and targets; a fixed 38-entry canonical palette per target; 32 recent failure records; and 50 generation attempts per day. Invalid or replay-only requests cannot consume the accepted-work budget.
 - Background generation pauses automatically before claiming work when the uploads filesystem has less than 256 MiB free. Queued work remains intact and the watchdog checks again later.
