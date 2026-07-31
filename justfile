@@ -24,6 +24,9 @@ check:
 review:
 	composer review:readiness
 
+deploy:
+	bash tools/deploy-blog.sh
+
 package:
 	tools/wporg-release.sh package
 
