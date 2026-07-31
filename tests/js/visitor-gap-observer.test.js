@@ -122,6 +122,7 @@ function runDetector(srcset, renderedWidth, options = {}) {
 	let mutationCallback = null;
 	let nextTimerId = 1;
 	let randomIndex = 0;
+	let responseBodiesConsumed = 0;
 	let currentRenderedWidth = renderedWidth;
 	let currentSource = options.currentSrc || 'https://example.test/uploads/image.jpg';
 	let fallbackSource = options.fallbackSrc || currentSource;
@@ -294,7 +295,13 @@ function runDetector(srcset, renderedWidth, options = {}) {
 			innerWidth: options.viewportWidth || 1440,
 			fetch: (url, options) => {
 				requests.push({ url, options });
-				return Promise.resolve();
+				return Promise.resolve({
+					arrayBuffer: () => {
+						++responseBodiesConsumed;
+
+						return Promise.resolve(new ArrayBuffer(0));
+					}
+				});
 			},
 			matchMedia: (media) => ({
 				matches: options.matchMedia ? options.matchMedia(media) : true
@@ -313,6 +320,10 @@ function runDetector(srcset, renderedWidth, options = {}) {
 	};
 
 	vm.runInNewContext(source, context);
+
+	if (options.unlockReporting !== false && eventHandlers.pointerdown) {
+		eventHandlers.pointerdown();
+	}
 
 	if (autoRunTimers) {
 		runAllTimers();
@@ -361,6 +372,7 @@ function runDetector(srcset, renderedWidth, options = {}) {
 	};
 	requests.runNextTimer = runNextTimer;
 	requests.runAllTimers = runAllTimers;
+	requests.responseBodiesConsumed = () => responseBodiesConsumed;
 
 	return requests;
 }
@@ -447,6 +459,40 @@ test('covered page performs no visitor request', () => {
 	const requests = runDetector('image-640.jpg 640w, image-768.jpg 768w', 640);
 
 	assert.equal(requests.length, 0);
+});
+
+test('initial navigation collects gaps without starting a request', () => {
+	const requests = runDetector('image-320.jpg 320w', 640, {
+		unlockReporting: false
+	});
+
+	assert.equal(requests.length, 0);
+
+	requests.trigger('pointerdown');
+
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].options.keepalive, false);
+});
+
+test('page exit flushes pending gaps with keepalive transport', () => {
+	const requests = runDetector('image-320.jpg 320w', 640, {
+		unlockReporting: false
+	});
+
+	requests.trigger('pagehide');
+
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].options.keepalive, true);
+});
+
+test('visitor request consumes its response body', async () => {
+	const requests = runDetector('image-320.jpg 320w', 640);
+
+	await Promise.resolve();
+	await Promise.resolve();
+
+	assert.equal(requests.length, 1);
+	assert.equal(requests.responseBodiesConsumed(), 1);
 });
 
 test('asset reports coarse slot evidence when wrong sizes select an oversized source', () => {
