@@ -23,6 +23,9 @@ final class Background_Optimizer {
 	private const DEFAULT_DELAY             = 5;
 	private const LOCK_RETRY_DELAY          = 60;
 	private const MAX_BATCH_DELAY           = 3600;
+	private const DEFAULT_BATCH_RUNTIME     = 30;
+	private const MINIMUM_BATCH_RUNTIME     = 1;
+	private const MAXIMUM_BATCH_RUNTIME     = 120;
 	private const WATCHDOG_INTERVAL         = 'hourly';
 	private const MINIMUM_FREE_UPLOAD_BYTES = 268435456;
 
@@ -188,7 +191,7 @@ final class Background_Optimizer {
 	}
 
 	/**
-	 * Process one claimed target-width job.
+	 * Process qualified target-width jobs within one bounded cron invocation.
 	 *
 	 * @return void
 	 */
@@ -202,36 +205,77 @@ final class Background_Optimizer {
 			return;
 		}
 
-		$job_id      = '';
-		$lease_token = '';
+		$deadline          = microtime( true ) + $this->batch_runtime_seconds();
+		$processed         = 0;
+		$storage_exhausted = false;
 
 		try {
-			if ( ! $this->upload_storage_has_capacity() ) {
-				$this->maybe_purge_completed_work();
-				$this->ensure_watchdog_scheduled();
-				return;
-			}
-
-			try {
-				$job         = $this->store->claim_next_job();
-				$job_id      = sanitize_text_field( (string) ( $job['id'] ?? '' ) );
-				$lease_token = sanitize_text_field( (string) ( $job['lease_token'] ?? '' ) );
-
-				if ( '' !== $job_id ) {
-					$this->process_job( $job_id, $job );
+			while ( true ) {
+				if ( $processed > 0 && microtime( true ) >= $deadline ) {
+					break;
 				}
-			} catch ( \Throwable $error ) {
-				if ( '' !== $job_id && '' !== $lease_token ) {
+
+				if ( ! $this->renew_lock() ) {
+					break;
+				}
+
+				if ( ! $this->upload_storage_has_capacity() ) {
+					$storage_exhausted = true;
+					break;
+				}
+
+				$job_id      = '';
+				$lease_token = '';
+
+				try {
+					$job         = $this->store->claim_next_job();
+					$job_id      = sanitize_text_field( (string) ( $job['id'] ?? '' ) );
+					$lease_token = sanitize_text_field( (string) ( $job['lease_token'] ?? '' ) );
+
+					if ( '' === $job_id ) {
+						break;
+					}
+
+					++$processed;
+					$this->process_job( $job_id, $job );
+				} catch ( \Throwable $error ) {
+					if ( '' === $job_id || '' === $lease_token ) {
+						break;
+					}
+
 					$this->complete_safely( $job_id, $lease_token, false, 'unexpected_worker_error' );
 				}
 			}
 
 			$this->maybe_purge_completed_work();
+
+			if ( $storage_exhausted ) {
+				$this->ensure_watchdog_scheduled();
+			}
 		} finally {
 			$this->release_lock();
 		}
 
-		$this->schedule();
+		if ( ! $storage_exhausted ) {
+			$this->schedule();
+		}
+	}
+
+	/**
+	 * Get the wall-clock budget for one cron invocation.
+	 *
+	 * A job already in progress may finish after the deadline. The worker checks
+	 * the budget before claiming each subsequent job.
+	 *
+	 * @return float Runtime budget in seconds.
+	 */
+	private function batch_runtime_seconds(): float {
+		$runtime = (float) apply_filters(
+			'empirical_responsive_images_background_optimizer_runtime_seconds',
+			self::DEFAULT_BATCH_RUNTIME
+		);
+
+		return max( self::MINIMUM_BATCH_RUNTIME, min( self::MAXIMUM_BATCH_RUNTIME, $runtime ) );
 	}
 
 	/**

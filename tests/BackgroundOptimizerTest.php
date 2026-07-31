@@ -24,6 +24,16 @@ function disk_free_space( string $directory ) {
 	return function_exists( 'disk_free_space' ) ? \disk_free_space( $directory ) : false;
 }
 
+function microtime( bool $as_float = false ) {
+	if ( ! empty( $GLOBALS['eri_test_monotonic_times'] ) ) {
+		$value = array_shift( $GLOBALS['eri_test_monotonic_times'] );
+
+		return $as_float ? (float) $value : (string) $value;
+	}
+
+	return \microtime( $as_float );
+}
+
 namespace EmpiricalResponsiveImages\Tests;
 
 use EmpiricalResponsiveImages\Asset_Manager;
@@ -45,11 +55,13 @@ final class BackgroundOptimizerTest extends TestCase {
 		$GLOBALS['eri_test_options'][ Settings::OPTION_NAME ] = $settings;
 		$GLOBALS['eri_test_disk_free_space']                   = PHP_INT_MAX;
 		$GLOBALS['eri_test_disk_free_space_paths']             = array();
+		$GLOBALS['eri_test_monotonic_times']                    = array();
 	}
 
 	protected function tearDown(): void {
 		$GLOBALS['eri_test_disk_free_space']       = null;
 		$GLOBALS['eri_test_disk_free_space_paths'] = array();
+		$GLOBALS['eri_test_monotonic_times']        = array();
 	}
 
 	public function test_activation_schedules_one_fixed_batch_and_watchdog(): void {
@@ -137,6 +149,59 @@ final class BackgroundOptimizerTest extends TestCase {
 		self::assertSame( array( 796 ), $ledger['widths'] );
 		self::assertFalse( $data['cache']['dirty'] );
 		self::assertSame( 1, $GLOBALS['eri_test_siteground_purge_all'] );
+	}
+
+	public function test_run_drains_multiple_qualified_targets_within_runtime_budget(): void {
+		list( $optimizer, $store, $first_target ) = $this->services();
+		$second_target                            = $this->add_attachment( 304 );
+		$third_target                             = $this->add_attachment( 305 );
+
+		foreach ( array( $first_target, $second_target, $third_target ) as $target ) {
+			$store->record_gaps( array( $this->gap( $target, 704 ) ), new Settings(), true );
+		}
+
+		foreach ( array( 303, 304, 305 ) as $attachment_id ) {
+			$this->add_covered_attachment_size( $attachment_id );
+		}
+
+		$optimizer->run();
+
+		$data = $store->get_data();
+
+		self::assertSame( array(), $data['jobs'] );
+		self::assertCount( 3, $data['targets'] );
+		self::assertSame( 3, $data['daily']['processed'] );
+		self::assertSame( 1, $GLOBALS['eri_test_siteground_purge_all'] );
+	}
+
+	public function test_run_stops_before_claiming_another_job_after_runtime_budget(): void {
+		list( $optimizer, $store, $first_target ) = $this->services();
+		$second_target                            = $this->add_attachment( 304 );
+
+		foreach ( array( $first_target, $second_target ) as $target ) {
+			$store->record_gaps( array( $this->gap( $target, 704 ) ), new Settings(), true );
+		}
+
+		$this->add_covered_attachment_size( 303 );
+		$this->add_covered_attachment_size( 304 );
+
+		add_filter(
+			'empirical_responsive_images_background_optimizer_runtime_seconds',
+			static function (): int {
+				return 1;
+			}
+		);
+
+		$GLOBALS['eri_test_monotonic_times'] = array( 100.0, 102.0 );
+
+		$optimizer->run();
+
+		$data = $store->get_data();
+
+		self::assertCount( 1, $data['jobs'] );
+		self::assertCount( 1, $data['targets'] );
+		self::assertSame( 1, $data['daily']['processed'] );
+		self::assertNotFalse( wp_next_scheduled( Background_Optimizer::BATCH_HOOK ) );
 	}
 
 	public function test_low_upload_space_leaves_qualified_job_queued_for_watchdog(): void {
@@ -231,6 +296,25 @@ final class BackgroundOptimizerTest extends TestCase {
 	}
 
 	/**
+	 * Register another covered test attachment.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return string Signed visitor-gap target.
+	 */
+	private function add_attachment( int $attachment_id ): string {
+		$GLOBALS['eri_test_image_attachments'][ $attachment_id ]   = true;
+		$GLOBALS['eri_test_attachment_files'][ $attachment_id ]    = dirname( __DIR__ ) . '/.wordpress-org/source-icon-1024.png';
+		$GLOBALS['eri_test_attachment_metadata'][ $attachment_id ] = array(
+			'file'   => 'source-icon-1024.png',
+			'width'  => 1600,
+			'height' => 1000,
+			'sizes'  => array(),
+		);
+
+		return Visitor_Gap_Target::token_for_attachment( $attachment_id );
+	}
+
+	/**
 	 * Qualify a target across three server windows.
 	 *
 	 * @param Visitor_Gap_Store $store  Store.
@@ -260,14 +344,14 @@ final class BackgroundOptimizerTest extends TestCase {
 	 *
 	 * @return void
 	 */
-	private function add_covered_attachment_size(): void {
-		$metadata = $GLOBALS['eri_test_attachment_metadata'][303];
+	private function add_covered_attachment_size( int $attachment_id = 303 ): void {
+		$metadata = $GLOBALS['eri_test_attachment_metadata'][ $attachment_id ];
 		$metadata['sizes']['empirical-responsive-images-796'] = array(
 			'file'   => 'source-icon-1024.png',
 			'width'  => 796,
 			'height' => 498,
 		);
-		$GLOBALS['eri_test_attachment_metadata'][303] = $metadata;
+		$GLOBALS['eri_test_attachment_metadata'][ $attachment_id ] = $metadata;
 	}
 
 	/**
