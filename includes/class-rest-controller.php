@@ -169,7 +169,7 @@ final class REST_Controller {
 	}
 
 	/**
-	 * Record bounded, anonymous visitor gap hints.
+	 * Record bounded visitor gap hints.
 	 *
 	 * Public requests only record bounded evidence. Qualified jobs are processed
 	 * later by the fixed background worker.
@@ -242,7 +242,11 @@ final class REST_Controller {
 		}
 		unset( $gap );
 
-		$result = $this->visitor_gap_store->record_gaps( $gaps, $this->settings );
+		$result = $this->visitor_gap_store->record_gaps(
+			$gaps,
+			$this->settings,
+			$this->is_trusted_gap_reporter( $request )
+		);
 
 		if ( ! empty( $result['busy'] ) ) {
 			return new \WP_Error(
@@ -257,6 +261,23 @@ final class REST_Controller {
 		}
 
 		return rest_ensure_response( $result );
+	}
+
+	/**
+	 * Check whether current request may confirm one detected gap immediately.
+	 *
+	 * Contributor and stronger default WordPress roles have edit_posts. Both
+	 * capability and REST nonce are required; no client payload flag is trusted.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return bool
+	 */
+	private function is_trusted_gap_reporter( \WP_REST_Request $request ): bool {
+		$nonce = sanitize_text_field( (string) $request->get_header( 'X-WP-Nonce' ) );
+
+		return current_user_can( 'edit_posts' )
+			&& '' !== $nonce
+			&& false !== wp_verify_nonce( $nonce, 'wp_rest' );
 	}
 
 	/**

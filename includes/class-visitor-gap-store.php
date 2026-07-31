@@ -1,6 +1,6 @@
 <?php
 /**
- * Bounded storage and queue for anonymous visitor image-gap evidence.
+ * Bounded storage and queue for visitor image-gap evidence.
  *
  * @package EmpiricalResponsiveImages
  */
@@ -21,26 +21,27 @@ final class Visitor_Gap_Store {
 	public const MAX_WIDTHS_PER_REPORT   = self::MAX_GAPS_PER_REPORT;
 	public const BUCKET_PROTOCOL_VERSION = 2;
 
-	private const DATA_VERSION                  = 5;
-	private const WRITE_LOCK_TTL_SECONDS        = 5;
-	private const CONFIRMATION_WINDOW           = 900;
-	private const PENDING_RETENTION_SECONDS     = 2592000;
-	private const FAILURE_RETENTION_SECONDS     = 2592000;
-	private const FAILURE_REOPEN_COOLDOWN       = 86400;
-	private const PROCESSING_STALE_SECONDS      = 900;
-	private const MAX_JOBS                      = 256;
-	private const MAX_ACTIVE_TARGETS            = 256;
-	private const MAX_PROBATION_JOBS            = 96;
-	private const MAX_QUALIFIED_JOBS            = 50;
-	private const MAX_FAILED_JOBS               = 32;
-	private const MAX_COMPLETED_TARGET_HISTORY  = 256;
-	private const MAX_LEARNED_WIDTHS_PER_TARGET = 38;
-	private const MAX_CONFIRMATIONS             = 1000000;
-	private const MAX_REPORTS_PER_WINDOW        = 120;
-	private const MAX_PAIRS_PER_WINDOW          = 256;
-	private const MAX_GENERATIONS_PER_DAY       = 50;
-	private const MAX_ATTEMPTS                  = 3;
-	private const CACHE_PURGE_INTERVAL          = 900;
+	private const DATA_VERSION                   = 5;
+	private const WRITE_LOCK_TTL_SECONDS         = 5;
+	private const CONFIRMATION_WINDOW            = 900;
+	private const PENDING_RETENTION_SECONDS      = 2592000;
+	private const FAILURE_RETENTION_SECONDS      = 2592000;
+	private const FAILURE_REOPEN_COOLDOWN        = 86400;
+	private const PROCESSING_STALE_SECONDS       = 900;
+	private const MAX_JOBS                       = 256;
+	private const MAX_ACTIVE_TARGETS             = 256;
+	private const MAX_PROBATION_JOBS             = 96;
+	private const MAX_QUALIFIED_JOBS             = 50;
+	private const MAX_FAILED_JOBS                = 32;
+	private const MAX_COMPLETED_TARGET_HISTORY   = 256;
+	private const MAX_LEARNED_WIDTHS_PER_TARGET  = 38;
+	private const MAX_CONFIRMATIONS              = 1000000;
+	private const MAX_REPORTS_PER_WINDOW         = 120;
+	private const MAX_PAIRS_PER_WINDOW           = 256;
+	private const MAX_GENERATIONS_PER_DAY        = 50;
+	private const MAX_ATTEMPTS                   = 3;
+	private const CACHE_PURGE_INTERVAL           = 900;
+	private const TRUSTED_CONFIRMATIONS_REQUIRED = 1;
 
 	/**
 	 * Local asset manager.
@@ -328,11 +329,12 @@ final class Visitor_Gap_Store {
 	 * Each pair can advance once per server window. Qualification automatically
 	 * moves it into the fixed background queue.
 	 *
-	 * @param array    $gaps     Raw target/width pairs.
-	 * @param Settings $settings Settings.
+	 * @param array    $gaps                 Raw target/width pairs.
+	 * @param Settings $settings             Settings.
+	 * @param bool     $trusted_confirmation Whether capability and nonce authenticated this report.
 	 * @return array
 	 */
-	public function record_gaps( array $gaps, Settings $settings ): array {
+	public function record_gaps( array $gaps, Settings $settings, bool $trusted_confirmation = false ): array {
 		if ( ! $settings->is_visitor_gap_learning_enabled() ) {
 			return array(
 				'accepted' => 0,
@@ -389,7 +391,7 @@ final class Visitor_Gap_Store {
 				}
 
 				$seen[ $raw_key ] = true;
-				$normalized       = $this->normalize_gap( $gap, $settings, $data, $current_window, $now );
+				$normalized       = $this->normalize_gap( $gap, $settings, $data, $current_window, $now, $trusted_confirmation );
 
 				if ( empty( $normalized ) ) {
 					continue;
@@ -412,29 +414,30 @@ final class Visitor_Gap_Store {
 				$job = $exists
 					? $data['jobs'][ $job_id ]
 					: array(
-						'id'              => $job_id,
-						'target_key'      => $normalized['target_key'],
-						'target'          => $normalized['target'],
-						'type'            => $normalized['type'],
-						'label'           => $normalized['label'],
-						'width'           => $normalized['width'],
-						'requested_width' => $normalized['requested_width'],
-						'viewport_width'  => $normalized['viewport_width'],
-						'slot_width'      => $normalized['slot_width'],
-						'creates_width'   => $normalized['creates_width'],
-						'confirmations'   => 0,
-						'first_seen'      => $now,
-						'last_seen'       => 0,
-						'last_window'     => -1,
-						'status'          => 'pending',
-						'attempts'        => 0,
-						'started_at'      => 0,
-						'lease_token'     => '',
-						'next_attempt_at' => 0,
-						'last_error'      => '',
-						'terminal_at'     => 0,
-						'qualified_at'    => 0,
-						'queue_order'     => 0,
+						'id'                   => $job_id,
+						'target_key'           => $normalized['target_key'],
+						'target'               => $normalized['target'],
+						'type'                 => $normalized['type'],
+						'label'                => $normalized['label'],
+						'width'                => $normalized['width'],
+						'requested_width'      => $normalized['requested_width'],
+						'viewport_width'       => $normalized['viewport_width'],
+						'slot_width'           => $normalized['slot_width'],
+						'creates_width'        => $normalized['creates_width'],
+						'confirmations'        => 0,
+						'first_seen'           => $now,
+						'last_seen'            => 0,
+						'last_window'          => -1,
+						'status'               => 'pending',
+						'attempts'             => 0,
+						'started_at'           => 0,
+						'lease_token'          => '',
+						'next_attempt_at'      => 0,
+						'last_error'           => '',
+						'terminal_at'          => 0,
+						'qualified_at'         => 0,
+						'queue_order'          => 0,
+						'trusted_confirmation' => false,
 					);
 
 				if ( $reopening ) {
@@ -447,17 +450,32 @@ final class Visitor_Gap_Store {
 					}
 				}
 
-				if ( in_array( (string) ( $job['status'] ?? '' ), array( 'queued', 'processing', 'retry_wait', 'failed' ), true ) || (int) ( $job['last_window'] ?? -1 ) === $current_window ) {
+				$status          = (string) ( $job['status'] ?? '' );
+				$trusted_upgrade = ! empty( $normalized['trusted_confirmation'] ) && empty( $job['trusted_confirmation'] );
+
+				if (
+					in_array( $status, array( 'queued', 'processing', 'retry_wait', 'failed' ), true )
+					|| ( (int) ( $job['last_window'] ?? -1 ) === $current_window && ! $trusted_upgrade )
+				) {
 					continue;
 				}
 
-				$job['confirmations'] = min( self::MAX_CONFIRMATIONS, absint( $job['confirmations'] ?? 0 ) + 1 );
-				$job['last_seen']     = $now;
-				$job['last_window']   = $current_window;
+				if ( ! empty( $normalized['trusted_confirmation'] ) ) {
+					$job['trusted_confirmation'] = true;
+				}
+
+				if ( (int) ( $job['last_window'] ?? -1 ) !== $current_window ) {
+					$job['confirmations'] = min( self::MAX_CONFIRMATIONS, absint( $job['confirmations'] ?? 0 ) + 1 );
+				} else {
+					$job['confirmations'] = max( 1, absint( $job['confirmations'] ?? 0 ) );
+				}
+
+				$job['last_seen']   = $now;
+				$job['last_window'] = $current_window;
 
 				if (
 					0 === absint( $job['qualified_at'] ?? 0 )
-					&& absint( $job['confirmations'] ) >= $settings->get_int( 'visitor_gap_min_confirmations' )
+					&& absint( $job['confirmations'] ) >= $this->confirmations_required( $job, $settings )
 				) {
 					$job['qualified_at'] = $now;
 				}
@@ -880,14 +898,15 @@ final class Visitor_Gap_Store {
 	/**
 	 * Normalize and verify one signed gap pair.
 	 *
-	 * @param mixed    $gap            Raw pair.
-	 * @param Settings $settings       Settings.
-	 * @param array    $data           Current queue data.
-	 * @param int      $current_window Current confirmation window.
-	 * @param int      $now            Current timestamp.
+	 * @param mixed    $gap                  Raw pair.
+	 * @param Settings $settings             Settings.
+	 * @param array    $data                 Current queue data.
+	 * @param int      $current_window       Current confirmation window.
+	 * @param int      $now                  Current timestamp.
+	 * @param bool     $trusted_confirmation Whether capability and nonce authenticated this report.
 	 * @return array
 	 */
-	private function normalize_gap( $gap, Settings $settings, array $data, int $current_window, int $now ): array {
+	private function normalize_gap( $gap, Settings $settings, array $data, int $current_window, int $now, bool $trusted_confirmation ): array {
 		if ( ! is_array( $gap ) || empty( $gap['target'] ) || ! is_string( $gap['target'] ) || ! isset( $gap['width'] ) || ! is_numeric( $gap['width'] ) ) {
 			return array();
 		}
@@ -949,8 +968,11 @@ final class Visitor_Gap_Store {
 					return array();
 				}
 			} elseif (
-				absint( $job['confirmations'] ?? 0 ) >= $settings->get_int( 'visitor_gap_min_confirmations' )
-				|| (int) ( $job['last_window'] ?? -1 ) === $current_window
+				absint( $job['confirmations'] ?? 0 ) >= $this->confirmations_required( $job, $settings )
+				|| (
+					(int) ( $job['last_window'] ?? -1 ) === $current_window
+					&& ( ! $trusted_confirmation || ! empty( $job['trusted_confirmation'] ) )
+				)
 			) {
 				return array();
 			}
@@ -987,17 +1009,31 @@ final class Visitor_Gap_Store {
 			: sanitize_text_field( (string) ( $target['url'] ?? __( 'Local asset', 'empirical-responsive-images' ) ) );
 
 		return array(
-			'target'          => $target_token,
-			'target_key'      => substr( hash( 'sha256', $target_token ), 0, 32 ),
-			'type'            => $type,
-			'label'           => $label,
-			'width'           => $work_width,
-			'requested_width' => $requested_width,
-			'viewport_width'  => $viewport_width,
-			'slot_width'      => $slot_width,
-			'creates_width'   => 0 === $native_width,
-			'managed_widths'  => Visitor_Gap_Target::get_managed_widths( $target, $this->get_asset_manager() ),
+			'target'               => $target_token,
+			'target_key'           => substr( hash( 'sha256', $target_token ), 0, 32 ),
+			'type'                 => $type,
+			'label'                => $label,
+			'width'                => $work_width,
+			'requested_width'      => $requested_width,
+			'viewport_width'       => $viewport_width,
+			'slot_width'           => $slot_width,
+			'creates_width'        => 0 === $native_width,
+			'managed_widths'       => Visitor_Gap_Target::get_managed_widths( $target, $this->get_asset_manager() ),
+			'trusted_confirmation' => $trusted_confirmation,
 		);
+	}
+
+	/**
+	 * Get confirmation threshold for one pending job.
+	 *
+	 * @param array    $job      Pending job.
+	 * @param Settings $settings Settings.
+	 * @return int
+	 */
+	private function confirmations_required( array $job, Settings $settings ): int {
+		return ! empty( $job['trusted_confirmation'] )
+			? self::TRUSTED_CONFIRMATIONS_REQUIRED
+			: max( 1, $settings->get_int( 'visitor_gap_min_confirmations' ) );
 	}
 
 	/**
@@ -1083,9 +1119,9 @@ final class Visitor_Gap_Store {
 	/**
 	 * Make bounded room for one brand-new evidence pair.
 	 *
-	 * One-confirmation entries are probationary. They cannot occupy the entire
-	 * queue. Pending evidence may be displaced under pressure so continuously
-	 * replayed anonymous reports cannot permanently block a new target.
+	 * Unqualified entries are probationary. They cannot occupy the entire queue.
+	 * Pending evidence may be displaced under pressure so continuously replayed
+	 * anonymous reports cannot permanently block a new target.
 	 *
 	 * @param array $data       Stored data, modified when one pending entry is evicted.
 	 * @param array $normalized Normalized new pair.
@@ -1165,7 +1201,6 @@ final class Visitor_Gap_Store {
 		$qualified_targets = array();
 		$qualified_count   = 0;
 		$candidates        = array();
-		$threshold         = $settings->get_int( 'visitor_gap_min_confirmations' );
 
 		foreach ( $data['jobs'] as $job_id => $job ) {
 			if ( ! is_array( $job ) ) {
@@ -1183,7 +1218,7 @@ final class Visitor_Gap_Store {
 				}
 			} elseif (
 				'pending' === $status
-				&& absint( $job['confirmations'] ?? 0 ) >= $threshold
+				&& absint( $job['confirmations'] ?? 0 ) >= $this->confirmations_required( $job, $settings )
 			) {
 				if ( 0 === absint( $job['qualified_at'] ?? 0 ) ) {
 					$job['qualified_at'] = max(
@@ -1269,7 +1304,11 @@ final class Visitor_Gap_Store {
 
 			++$active;
 
-			if ( 'pending' === $status && absint( $job['confirmations'] ?? 0 ) <= 1 ) {
+			if (
+				'pending' === $status
+				&& absint( $job['confirmations'] ?? 0 ) <= 1
+				&& empty( $job['trusted_confirmation'] )
+			) {
 				++$pending;
 			}
 
@@ -1342,19 +1381,20 @@ final class Visitor_Gap_Store {
 	 * @return array
 	 */
 	private function reopen_failed_job( array $job, int $now ): array {
-		$job['status']          = 'pending';
-		$job['confirmations']   = 0;
-		$job['first_seen']      = $now;
-		$job['last_seen']       = 0;
-		$job['last_window']     = -1;
-		$job['attempts']        = 0;
-		$job['started_at']      = 0;
-		$job['lease_token']     = '';
-		$job['next_attempt_at'] = 0;
-		$job['last_error']      = '';
-		$job['terminal_at']     = 0;
-		$job['qualified_at']    = 0;
-		$job['queue_order']     = 0;
+		$job['status']               = 'pending';
+		$job['confirmations']        = 0;
+		$job['first_seen']           = $now;
+		$job['last_seen']            = 0;
+		$job['last_window']          = -1;
+		$job['attempts']             = 0;
+		$job['started_at']           = 0;
+		$job['lease_token']          = '';
+		$job['next_attempt_at']      = 0;
+		$job['last_error']           = '';
+		$job['terminal_at']          = 0;
+		$job['qualified_at']         = 0;
+		$job['queue_order']          = 0;
+		$job['trusted_confirmation'] = false;
 
 		return $job;
 	}

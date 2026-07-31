@@ -100,6 +100,41 @@ final class VisitorGapStoreTest extends TestCase {
 		self::assertTrue( $store->has_runnable_jobs() );
 	}
 
+	public function test_trusted_confirmation_automatically_queues_job_after_one_report(): void {
+		$store  = new Visitor_Gap_Store( $this->asset_manager() );
+		$target = $this->attachment_target();
+		$result = $store->record_gaps(
+			array( $this->gap( $target, 641 ) ),
+			new Settings(),
+			true
+		);
+		$job    = reset( $store->get_data()['jobs'] );
+
+		self::assertSame( 1, $result['accepted'] );
+		self::assertSame( 1, $result['queued'] );
+		self::assertSame( 1, $job['confirmations'] );
+		self::assertTrue( $job['trusted_confirmation'] );
+		self::assertSame( 'queued', $job['status'] );
+	}
+
+	public function test_trusted_report_upgrades_same_window_anonymous_evidence(): void {
+		$store    = new Visitor_Gap_Store( $this->asset_manager() );
+		$target   = $this->attachment_target();
+		$settings = new Settings();
+
+		$anonymous = $store->record_gaps( array( $this->gap( $target, 641 ) ), $settings );
+		$trusted   = $store->record_gaps( array( $this->gap( $target, 641 ) ), $settings, true );
+		$job       = reset( $store->get_data()['jobs'] );
+
+		self::assertSame( 1, $anonymous['accepted'] );
+		self::assertSame( 0, $anonymous['queued'] );
+		self::assertSame( 1, $trusted['accepted'] );
+		self::assertSame( 1, $trusted['queued'] );
+		self::assertSame( 1, $job['confirmations'] );
+		self::assertTrue( $job['trusted_confirmation'] );
+		self::assertSame( 'queued', $job['status'] );
+	}
+
 	public function test_server_rejects_covered_and_forged_target_gaps(): void {
 		$target = $this->attachment_target(
 			101,

@@ -87,7 +87,7 @@ final class ImageSizesTest extends TestCase {
 		);
 	}
 
-	public function test_opted_in_visitor_receives_gap_detector_without_rest_nonce(): void {
+	public function test_opted_in_anonymous_visitor_receives_gap_detector_without_rest_nonce(): void {
 		$settings                                 = ( new Settings() )->defaults();
 		$settings['visitor_gap_learning_enabled'] = true;
 		$GLOBALS['eri_test_options'][ Settings::OPTION_NAME ] = $settings;
@@ -106,12 +106,50 @@ final class ImageSizesTest extends TestCase {
 			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']
 		);
 		self::assertSame(
+			'',
+			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']['confirmationNonce']
+		);
+		self::assertSame(
 			Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION,
 			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']['bucketVersion']
 		);
 		self::assertSame(
 			Visitor_Gap_Store::canonical_widths(),
 			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']['bucketWidths']
+		);
+	}
+
+	public function test_contributor_or_stronger_role_receives_gap_confirmation_nonce(): void {
+		$GLOBALS['eri_test_current_user_can_edit_posts'] = true;
+		$image_sizes = new Image_Sizes( new Settings(), new Observation_Store() );
+
+		$image_sizes->enqueue_observer();
+
+		self::assertArrayHasKey( 'empirical-responsive-images-visitor-gap-observer', $GLOBALS['eri_test_enqueued_scripts'] );
+		self::assertArrayNotHasKey( 'empirical-responsive-images-observer', $GLOBALS['eri_test_enqueued_scripts'] );
+		self::assertSame(
+			'test-nonce-wp_rest',
+			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']['confirmationNonce']
+		);
+	}
+
+	public function test_gap_detector_fallback_markup_includes_trusted_nonce_and_semantic_class(): void {
+		$GLOBALS['eri_test_current_user_can_edit_posts'] = true;
+		$image_sizes = new Image_Sizes( new Settings(), new Observation_Store() );
+
+		$tag = $image_sizes->filter_observer_script_tag(
+			'<script src="visitor-gap-observer.js"></script>',
+			'empirical-responsive-images-visitor-gap-observer',
+			'https://example.test/visitor-gap-observer.js'
+		);
+
+		self::assertStringContainsString(
+			'class="empirical-responsive-images-visitor-gap-detector-script"',
+			$tag
+		);
+		self::assertStringContainsString(
+			'data-empirical-responsive-images-visitor-gap-confirmation-nonce="test-nonce-wp_rest"',
+			$tag
 		);
 	}
 
@@ -138,5 +176,9 @@ final class ImageSizesTest extends TestCase {
 
 		self::assertArrayHasKey( 'empirical-responsive-images-observer', $GLOBALS['eri_test_enqueued_scripts'] );
 		self::assertArrayHasKey( 'empirical-responsive-images-visitor-gap-observer', $GLOBALS['eri_test_enqueued_scripts'] );
+		self::assertSame(
+			'test-nonce-wp_rest',
+			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']['confirmationNonce']
+		);
 	}
 }

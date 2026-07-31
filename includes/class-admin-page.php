@@ -150,7 +150,7 @@ final class Admin_Page {
 			<section class="empirical-responsive-images-admin-card empirical-responsive-images-admin-card--summary" aria-labelledby="empirical-responsive-images-summary-title">
 				<h2 class="empirical-responsive-images-admin-card__title" id="empirical-responsive-images-summary-title"><?php esc_html_e( 'Observed image slots', 'empirical-responsive-images' ); ?></h2>
 				<p class="empirical-responsive-images-admin-card__description">
-					<?php esc_html_e( 'Automatic learning uses signed local image targets and fixed width buckets. It stores no page URL, cookie, IP address, user agent, or visitor identity.', 'empirical-responsive-images' ); ?>
+					<?php esc_html_e( 'Automatic learning uses signed local image targets and fixed width buckets. Anonymous and Subscriber reports omit cookies; trusted reports use WordPress authentication without storing page URLs, IP addresses, user agents, referrers, or visitor identities.', 'empirical-responsive-images' ); ?>
 				</p>
 				<ul class="empirical-responsive-images-summary-list">
 					<li class="empirical-responsive-images-summary-list__item">
@@ -228,7 +228,7 @@ final class Admin_Page {
 							<?php $this->render_number_row( 'rounding_step', __( 'Round observed widths to nearest pixels', 'empirical-responsive-images' ), $options, '8', '256', '1' ); ?>
 							<?php $this->render_number_row( 'min_rendered_width', __( 'Minimum rendered image width to observe', 'empirical-responsive-images' ), $options, '1', '1200', '1' ); ?>
 							<?php $this->render_number_row( 'max_registered_width', __( 'Maximum registered width', 'empirical-responsive-images' ), $options, '320', '5120', '1' ); ?>
-							<?php $this->render_number_row( 'visitor_gap_min_confirmations', __( 'Confirmation windows before automatic optimization', 'empirical-responsive-images' ), $options, '2', '20', '1' ); ?>
+							<?php $this->render_number_row( 'visitor_gap_min_confirmations', __( 'Anonymous and Subscriber confirmation windows', 'empirical-responsive-images' ), $options, '2', '20', '1' ); ?>
 							<?php $this->render_checkbox_row( 'delete_data_on_uninstall', __( 'Delete observations, settings, and plugin-generated image files when uninstalling', 'empirical-responsive-images' ), $options ); ?>
 						</tbody>
 					</table>

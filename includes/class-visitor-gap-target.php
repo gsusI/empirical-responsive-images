@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Issues and verifies bounded target handles for anonymous gap reports.
+ * Issues and verifies bounded target handles for visitor gap reports.
  */
 final class Visitor_Gap_Target {
 	public const MAX_AUTOMATIC_WIDTH = 5120;
