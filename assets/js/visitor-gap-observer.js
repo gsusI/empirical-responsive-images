@@ -178,6 +178,7 @@
 	var resizeObserver = null;
 	var reportedGapCount = 0;
 	var maximumReportedGaps = 48;
+	var reportingUnlocked = false;
 
 	if (
 		typeof window.fetch !== 'function'
@@ -195,11 +196,20 @@
 	maximumGaps = Math.max(1, Math.min(12, maximumGaps));
 
 	function scheduleFlush() {
-		if (flushTimer || reportedGapCount >= maximumReportedGaps) {
+		if (!reportingUnlocked || flushTimer || reportedGapCount >= maximumReportedGaps) {
 			return;
 		}
 
 		flushTimer = window.setTimeout(flush, 800);
+	}
+
+	function unlockReporting() {
+		if (reportingUnlocked) {
+			return;
+		}
+
+		reportingUnlocked = true;
+		scheduleFlush();
 	}
 
 	function queueGap(target, targetWidth, targetMaximumWidth, nativeWidth, viewportWidth, slotWidth) {
@@ -545,7 +555,7 @@
 		});
 	}
 
-	function flush() {
+	function flush(keepalive) {
 		var remainingGapBudget = maximumReportedGaps - reportedGapCount;
 		var gaps = Array.from(pendingGaps.entries()).sort(function (a, b) {
 			if (a[1].target === b[1].target) {
@@ -589,7 +599,13 @@
 			headers: requestHeaders,
 			credentials: requestCredentials,
 			referrerPolicy: 'no-referrer',
-			keepalive: true
+			keepalive: Boolean(keepalive)
+		}).then(function (response) {
+			if (response && typeof response.arrayBuffer === 'function') {
+				return response.arrayBuffer();
+			}
+
+			return null;
 		}).catch(function () {});
 
 		if (pendingGaps.size && reportedGapCount < maximumReportedGaps) {
@@ -614,7 +630,23 @@
 		});
 	}
 
-	window.addEventListener('resize', scheduleScan, { passive: true });
+	['pointerdown', 'keydown', 'scroll', 'touchstart'].forEach(function (eventName) {
+		window.addEventListener(eventName, unlockReporting, { passive: true, once: true });
+	});
+	window.addEventListener('resize', function () {
+		unlockReporting();
+		scheduleScan();
+	}, { passive: true });
+	window.addEventListener('pagehide', function () {
+		reportingUnlocked = true;
+
+		if (flushTimer) {
+			window.clearTimeout(flushTimer);
+			flushTimer = null;
+		}
+
+		flush(true);
+	}, { once: true });
 	window.addEventListener('load', function () {
 		runScanWhenIdle(false);
 	}, { once: true });
