@@ -175,10 +175,80 @@ final class RESTControllerTest extends TestCase {
 		self::assertSame( array(), $GLOBALS['eri_test_cron_events'][0]['args'] );
 	}
 
-	private function visitor_gap_request( array $gaps ): \WP_REST_Request {
+	public function test_contributor_or_stronger_role_queues_gap_after_one_nonce_authenticated_report(): void {
+		$this->enable_visitor_gap_learning();
+		$GLOBALS['eri_test_current_user_can_edit_posts'] = true;
+
+		$response = $this->controller()->record_visitor_gap_hints(
+			$this->visitor_gap_request( array( $this->gap( 704 ) ), wp_create_nonce( 'wp_rest' ) )
+		);
+		$job      = reset( $GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ]['jobs'] );
+
+		self::assertSame( 1, $response->get_data()['accepted'] );
+		self::assertSame( 1, $response->get_data()['queued'] );
+		self::assertSame( 1, $job['confirmations'] );
+		self::assertTrue( $job['trusted_confirmation'] );
+		self::assertSame( 'queued', $job['status'] );
+		self::assertCount( 1, $GLOBALS['eri_test_cron_events'] );
+	}
+
+	public function test_edit_posts_without_valid_nonce_keeps_multi_window_confirmation(): void {
+		$this->enable_visitor_gap_learning();
+		$GLOBALS['eri_test_current_user_can_edit_posts'] = true;
+
+		$response = $this->controller()->record_visitor_gap_hints(
+			$this->visitor_gap_request( array( $this->gap( 704 ) ), 'invalid-nonce' )
+		);
+		$job      = reset( $GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ]['jobs'] );
+
+		self::assertSame( 1, $response->get_data()['accepted'] );
+		self::assertSame( 0, $response->get_data()['queued'] );
+		self::assertSame( 1, $job['confirmations'] );
+		self::assertFalse( $job['trusted_confirmation'] );
+		self::assertSame( 'pending', $job['status'] );
+		self::assertSame( array(), $GLOBALS['eri_test_cron_events'] );
+	}
+
+	public function test_valid_nonce_without_edit_posts_keeps_subscriber_or_anonymous_threshold(): void {
+		$this->enable_visitor_gap_learning();
+
+		$response = $this->controller()->record_visitor_gap_hints(
+			$this->visitor_gap_request( array( $this->gap( 704 ) ), wp_create_nonce( 'wp_rest' ) )
+		);
+		$job      = reset( $GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ]['jobs'] );
+
+		self::assertSame( 1, $response->get_data()['accepted'] );
+		self::assertSame( 0, $response->get_data()['queued'] );
+		self::assertFalse( $job['trusted_confirmation'] );
+		self::assertSame( 'pending', $job['status'] );
+		self::assertSame( array(), $GLOBALS['eri_test_cron_events'] );
+	}
+
+	public function test_client_payload_cannot_forge_trusted_confirmation(): void {
+		$this->enable_visitor_gap_learning();
+		$gap                         = $this->gap( 704 );
+		$gap['trusted_confirmation'] = true;
+
+		$response = $this->controller()->record_visitor_gap_hints(
+			$this->visitor_gap_request( array( $gap ) )
+		);
+		$job      = reset( $GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ]['jobs'] );
+
+		self::assertSame( 1, $response->get_data()['accepted'] );
+		self::assertSame( 0, $response->get_data()['queued'] );
+		self::assertFalse( $job['trusted_confirmation'] );
+		self::assertSame( 'pending', $job['status'] );
+	}
+
+	private function visitor_gap_request( array $gaps, string $nonce = '' ): \WP_REST_Request {
 		$request = new \WP_REST_Request();
 		$request->set_header( 'X-Empirical-Responsive-Images-Token', Visitor_Gap_Store::report_token() );
 		$request->set_header( 'X-Empirical-Responsive-Images-Bucket-Version', (string) Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION );
+
+		if ( '' !== $nonce ) {
+			$request->set_header( 'X-WP-Nonce', $nonce );
+		}
+
 		$request->set_body( (string) json_encode( array( 'gaps' => $gaps ) ) );
 
 		return $request;

@@ -13,47 +13,49 @@ define( 'MINUTE_IN_SECONDS', 60 );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_URL', 'https://example.test/wp-content/plugins/empirical-responsive-images/' );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_VERSION', 'test' );
 
-$GLOBALS['eri_test_options'] = array();
-$GLOBALS['eri_test_current_user_can_manage'] = false;
-$GLOBALS['eri_test_enqueued_scripts']        = array();
-$GLOBALS['eri_test_localized_scripts']       = array();
-$GLOBALS['eri_test_registered_routes']       = array();
-$GLOBALS['eri_test_actions']                 = array();
-$GLOBALS['eri_test_filters']                 = array();
-$GLOBALS['eri_test_cron_events']             = array();
-$GLOBALS['eri_test_attachment_metadata']     = array();
-$GLOBALS['eri_test_attachment_files']        = array();
-$GLOBALS['eri_test_image_attachments']       = array();
-$GLOBALS['eri_test_added_image_sizes']       = array();
-$GLOBALS['eri_test_supported_formats']       = array();
-$GLOBALS['eri_test_siteground_purge_urls']   = array();
-$GLOBALS['eri_test_siteground_purge_all']    = 0;
-$GLOBALS['eri_test_update_option_failures']  = array();
-$GLOBALS['eri_test_getimagesize_calls']      = array();
-$GLOBALS['eri_test_uploads'] = array(
+$GLOBALS['eri_test_options']                     = array();
+$GLOBALS['eri_test_current_user_can_manage']     = false;
+$GLOBALS['eri_test_current_user_can_edit_posts'] = false;
+$GLOBALS['eri_test_enqueued_scripts']            = array();
+$GLOBALS['eri_test_localized_scripts']           = array();
+$GLOBALS['eri_test_registered_routes']           = array();
+$GLOBALS['eri_test_actions']                     = array();
+$GLOBALS['eri_test_filters']                     = array();
+$GLOBALS['eri_test_cron_events']                 = array();
+$GLOBALS['eri_test_attachment_metadata']         = array();
+$GLOBALS['eri_test_attachment_files']            = array();
+$GLOBALS['eri_test_image_attachments']           = array();
+$GLOBALS['eri_test_added_image_sizes']           = array();
+$GLOBALS['eri_test_supported_formats']           = array();
+$GLOBALS['eri_test_siteground_purge_urls']       = array();
+$GLOBALS['eri_test_siteground_purge_all']        = 0;
+$GLOBALS['eri_test_update_option_failures']      = array();
+$GLOBALS['eri_test_getimagesize_calls']          = array();
+$GLOBALS['eri_test_uploads']                     = array(
 	'basedir' => __DIR__ . '/runtime/uploads',
 	'baseurl' => 'https://example.test/uploads',
 );
 
 function eri_test_reset_state(): void {
-	$GLOBALS['eri_test_options']                 = array();
-	$GLOBALS['eri_test_current_user_can_manage'] = false;
-	$GLOBALS['eri_test_enqueued_scripts']        = array();
-	$GLOBALS['eri_test_localized_scripts']       = array();
-	$GLOBALS['eri_test_registered_routes']       = array();
-	$GLOBALS['eri_test_actions']                 = array();
-	$GLOBALS['eri_test_filters']                 = array();
-	$GLOBALS['eri_test_cron_events']             = array();
-	$GLOBALS['eri_test_attachment_metadata']     = array();
-	$GLOBALS['eri_test_attachment_files']        = array();
-	$GLOBALS['eri_test_image_attachments']       = array();
-	$GLOBALS['eri_test_added_image_sizes']       = array();
-	$GLOBALS['eri_test_supported_formats']       = array();
-	$GLOBALS['eri_test_siteground_purge_urls']   = array();
-	$GLOBALS['eri_test_siteground_purge_all']    = 0;
-	$GLOBALS['eri_test_update_option_failures']  = array();
-	$GLOBALS['eri_test_getimagesize_calls']      = array();
-	$GLOBALS['eri_test_uploads']                 = array(
+	$GLOBALS['eri_test_options']                     = array();
+	$GLOBALS['eri_test_current_user_can_manage']     = false;
+	$GLOBALS['eri_test_current_user_can_edit_posts'] = false;
+	$GLOBALS['eri_test_enqueued_scripts']            = array();
+	$GLOBALS['eri_test_localized_scripts']           = array();
+	$GLOBALS['eri_test_registered_routes']           = array();
+	$GLOBALS['eri_test_actions']                     = array();
+	$GLOBALS['eri_test_filters']                     = array();
+	$GLOBALS['eri_test_cron_events']                 = array();
+	$GLOBALS['eri_test_attachment_metadata']         = array();
+	$GLOBALS['eri_test_attachment_files']            = array();
+	$GLOBALS['eri_test_image_attachments']           = array();
+	$GLOBALS['eri_test_added_image_sizes']           = array();
+	$GLOBALS['eri_test_supported_formats']           = array();
+	$GLOBALS['eri_test_siteground_purge_urls']       = array();
+	$GLOBALS['eri_test_siteground_purge_all']        = 0;
+	$GLOBALS['eri_test_update_option_failures']      = array();
+	$GLOBALS['eri_test_getimagesize_calls']          = array();
+	$GLOBALS['eri_test_uploads']                     = array(
 		'basedir' => __DIR__ . '/runtime/uploads',
 		'baseurl' => 'https://example.test/uploads',
 	);
@@ -255,7 +257,15 @@ function do_action( string $hook_name, ...$args ): void {
 }
 
 function current_user_can( string $capability ): bool {
-	return 'manage_options' === $capability && $GLOBALS['eri_test_current_user_can_manage'];
+	if ( 'manage_options' === $capability ) {
+		return $GLOBALS['eri_test_current_user_can_manage'];
+	}
+
+	if ( 'edit_posts' === $capability ) {
+		return $GLOBALS['eri_test_current_user_can_edit_posts'] || $GLOBALS['eri_test_current_user_can_manage'];
+	}
+
+	return false;
 }
 
 function is_admin(): bool {
@@ -282,6 +292,10 @@ function rest_url( string $path = '' ): string {
 
 function wp_create_nonce( string $action = '-1' ): string {
 	return 'test-nonce-' . sanitize_key( $action );
+}
+
+function wp_verify_nonce( string $nonce, string $action = '-1' ) {
+	return hash_equals( wp_create_nonce( $action ), $nonce ) ? 1 : false;
 }
 
 function wp_attachment_is_image( int $attachment_id ): bool {

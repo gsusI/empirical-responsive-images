@@ -168,6 +168,7 @@
 			? config.requiredFormats
 			: dataset.empiricalResponsiveImagesVisitorGapRequiredFormats || '[]'
 	);
+	var confirmationNonce = config.confirmationNonce || dataset.empiricalResponsiveImagesVisitorGapConfirmationNonce || '';
 	var pendingGaps = new Map();
 	var reportedGaps = new Set();
 	var watchedImages = new WeakSet();
@@ -566,6 +567,18 @@
 		});
 		reportedGapCount += gaps.length;
 
+		var requestHeaders = {
+			'Content-Type': 'application/json',
+			'X-Empirical-Responsive-Images-Token': token,
+			'X-Empirical-Responsive-Images-Bucket-Version': String(bucketProtocolVersion)
+		};
+		var requestCredentials = 'omit';
+
+		if (confirmationNonce) {
+			requestHeaders['X-WP-Nonce'] = confirmationNonce;
+			requestCredentials = 'same-origin';
+		}
+
 		window.fetch(endpoint, {
 			method: 'POST',
 			body: JSON.stringify({
@@ -573,12 +586,8 @@
 					return gap[1];
 				})
 			}),
-			headers: {
-				'Content-Type': 'application/json',
-				'X-Empirical-Responsive-Images-Token': token,
-				'X-Empirical-Responsive-Images-Bucket-Version': String(bucketProtocolVersion)
-			},
-			credentials: 'omit',
+			headers: requestHeaders,
+			credentials: requestCredentials,
 			referrerPolicy: 'no-referrer',
 			keepalive: true
 		}).catch(function () {});

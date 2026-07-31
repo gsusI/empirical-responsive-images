@@ -258,6 +258,10 @@ function runDetector(srcset, renderedWidth, options = {}) {
 		observerConfig.requiredFormats = options.requiredFormats;
 	}
 
+	if (Object.prototype.hasOwnProperty.call(options, 'confirmationNonce')) {
+		observerConfig.confirmationNonce = options.confirmationNonce;
+	}
+
 	const currentScript = Object.prototype.hasOwnProperty.call(options, 'datasetRequiredFormats')
 		? {
 			dataset: {
@@ -500,10 +504,23 @@ test('uncovered page sends one signed target gap without cookies or referrer', (
 	assert.equal(requests[0].options.credentials, 'omit');
 	assert.equal(requests[0].options.referrerPolicy, 'no-referrer');
 	assert.equal(requests[0].options.headers['X-Empirical-Responsive-Images-Token'], 'public-token');
+	assert.equal(requests[0].options.headers['X-WP-Nonce'], undefined);
 	assert.equal(
 		requests[0].options.headers['X-Empirical-Responsive-Images-Bucket-Version'],
 		String(BUCKET_PROTOCOL_VERSION)
 	);
+});
+
+test('trusted contributor request sends same-origin cookies and REST nonce', () => {
+	const requests = runDetector('image-320.jpg 320w, image-1024.jpg 1024w', 640, {
+		confirmationNonce: 'trusted-rest-nonce'
+	});
+
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].options.credentials, 'same-origin');
+	assert.equal(requests[0].options.referrerPolicy, 'no-referrer');
+	assert.equal(requests[0].options.headers['X-WP-Nonce'], 'trusted-rest-nonce');
+	assert.equal(requests[0].options.headers['X-Empirical-Responsive-Images-Token'], 'public-token');
 });
 
 test('same-site image without signed target performs no visitor request', () => {

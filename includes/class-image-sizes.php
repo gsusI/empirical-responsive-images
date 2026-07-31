@@ -139,12 +139,13 @@ final class Image_Sizes {
 	}
 
 	/**
-	 * Enqueue anonymous, non-authoritative visitor gap detector.
+	 * Enqueue lightweight visitor gap detector.
 	 *
 	 * @return void
 	 */
 	private function enqueue_visitor_gap_observer(): void {
-		$handle = 'empirical-responsive-images-visitor-gap-observer';
+		$handle             = 'empirical-responsive-images-visitor-gap-observer';
+		$confirmation_nonce = current_user_can( 'edit_posts' ) ? wp_create_nonce( 'wp_rest' ) : '';
 
 		wp_enqueue_script(
 			$handle,
@@ -158,16 +159,17 @@ final class Image_Sizes {
 			$handle,
 			'EmpiricalResponsiveImagesVisitorGapObserver',
 			array(
-				'endpoint'         => esc_url_raw( rest_url( 'empirical-responsive-images/v1/visitor-gap-hints' ) ),
-				'token'            => Visitor_Gap_Store::report_token(),
-				'sampleRate'       => 1,
-				'minRenderedWidth' => $this->settings->get_int( 'min_rendered_width' ),
-				'maximumWidth'     => $this->settings->get_int( 'max_registered_width' ),
-				'bucketVersion'    => Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION,
-				'bucketWidths'     => Visitor_Gap_Store::canonical_widths(),
-				'maximumImages'    => 80,
-				'maximumGaps'      => Visitor_Gap_Store::MAX_WIDTHS_PER_REPORT,
-				'requiredFormats'  => $this->format_generator->get_required_frontend_formats(),
+				'endpoint'          => esc_url_raw( rest_url( 'empirical-responsive-images/v1/visitor-gap-hints' ) ),
+				'token'             => Visitor_Gap_Store::report_token(),
+				'sampleRate'        => 1,
+				'minRenderedWidth'  => $this->settings->get_int( 'min_rendered_width' ),
+				'maximumWidth'      => $this->settings->get_int( 'max_registered_width' ),
+				'bucketVersion'     => Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION,
+				'bucketWidths'      => Visitor_Gap_Store::canonical_widths(),
+				'maximumImages'     => 80,
+				'maximumGaps'       => Visitor_Gap_Store::MAX_WIDTHS_PER_REPORT,
+				'requiredFormats'   => $this->format_generator->get_required_frontend_formats(),
+				'confirmationNonce' => $confirmation_nonce,
 			)
 		);
 	}
@@ -187,7 +189,9 @@ final class Image_Sizes {
 				return $tag;
 			}
 
-			$attributes = array(
+			$confirmation_nonce = current_user_can( 'edit_posts' ) ? wp_create_nonce( 'wp_rest' ) : '';
+			$attributes         = array(
+				'class'                   => 'empirical-responsive-images-visitor-gap-detector-script',
 				'data-cfasync'            => 'false',
 				'data-no-defer'           => '1',
 				'data-no-minify'          => '1',
@@ -203,6 +207,7 @@ final class Image_Sizes {
 				'data-empirical-responsive-images-visitor-gap-max-images' => '80',
 				'data-empirical-responsive-images-visitor-gap-max-gaps' => (string) Visitor_Gap_Store::MAX_WIDTHS_PER_REPORT,
 				'data-empirical-responsive-images-visitor-gap-required-formats' => wp_json_encode( $this->format_generator->get_required_frontend_formats() ),
+				'data-empirical-responsive-images-visitor-gap-confirmation-nonce' => $confirmation_nonce,
 			);
 
 			return $this->add_script_attributes( $tag, $attributes );
@@ -213,6 +218,7 @@ final class Image_Sizes {
 		}
 
 		$attributes = array(
+			'class'                                        => 'empirical-responsive-images-diagnostic-observer-script',
 			'data-cfasync'                                 => 'false',
 			'data-no-defer'                                => '1',
 			'data-no-minify'                               => '1',
