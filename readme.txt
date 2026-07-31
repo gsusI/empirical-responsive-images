@@ -18,7 +18,7 @@ Features:
 
 * Automatic visitor learning runs on every front-end visit after activation and sends nothing for adequately covered images.
 * Every automatic report is bound to an HMAC-signed local attachment or asset target.
-* Repeated gaps are verified and generated automatically in target-specific WP-Cron jobs.
+* Anonymous and Subscriber gaps are verified across multiple server windows. A nonce-authenticated Contributor, Author, Editor, or Administrator can confirm a valid gap immediately.
 * An optional administrator-only observer can collect richer diagnostics, but automatic optimization does not depend on administrator visits.
 * Observations are stored as aggregate size data in WordPress options.
 * Observed width candidates are registered through `add_image_size()`.
@@ -33,9 +33,9 @@ Features:
 
 The full observer runs only for logged-in users who can manage site options. Requests require WordPress REST authentication and a valid REST nonce. It stores aggregate rendered image data and canonical page paths only; query strings and raw IP addresses are not persisted.
 
-Automatic visitor learning is enabled by default for every front-end visitor, including logged-in administrators. A lightweight local script compares each eligible signed local image target's rendered requirement with its native candidates and applicable WebP/AVIF sources; covered images make no request. Each target includes its attainable width ceiling so the browser does not request impossible output. Reports contain an HMAC-signed local target and a canonical physical-width bucket. Eligible targets can also include coarse, bounded viewport and slot buckets so responsive `sizes` hints can converge. Reports contain no page URL, cookie, IP address, user agent, referrer, or visitor identity. Signed attachment targets continue to work when a CDN rewrites the public image URL.
+Automatic visitor learning is enabled by default for every front-end visitor, including logged-in administrators. A lightweight local script compares each eligible signed local image target's rendered requirement with its native candidates and applicable WebP/AVIF sources; covered images make no request. Each target includes its attainable width ceiling so the browser does not request impossible output. Reports contain an HMAC-signed local target and a canonical physical-width bucket. Eligible targets can also include coarse, bounded viewport and slot buckets so responsive `sizes` hints can converge. Anonymous and Subscriber requests omit cookies. Contributor-or-stronger requests use normal same-origin WordPress cookies plus a REST nonce only to prove capability. The stored gap evidence contains no page URL, visitor identity, IP address, user agent, or referrer. Signed attachment targets continue to work when a CDN rewrites the public image URL.
 
-The public request only records evidence. WordPress later re-resolves the signed target, verifies that the image is local and still lacks suitable coverage, and runs target-specific generation through a locked WP-Cron worker. One pair counts at most once per 15-minute server window and must be confirmed across multiple windows. Safety limits include 12 pairs per report; 120 evidence-bearing reports and 256 accepted unique pairs per window; 96 one-confirmation probation entries; 256 simultaneous active jobs and targets; a fixed 38-entry canonical width palette per target; 32 recent failure records; a 2,560-pixel automatic ceiling; WordPress's effective attachment srcset ceiling; and 50 generation attempts per day. Invalid or replay-only requests cannot consume the accepted-work budget, and extra replays never buy queue priority. Background generation also pauses before claiming work when the uploads filesystem has less than 256 MiB free; queued work remains for a later watchdog run. Missed-window low-confidence entries can be replaced under pressure, so one-off traffic cannot reserve the queue for 30 days.
+The public request only records evidence. WordPress later re-resolves the signed target, verifies that the image is local and still lacks suitable coverage, and runs target-specific generation through a locked WP-Cron worker. Anonymous visitors and Subscribers must confirm one pair across the configured number of distinct 15-minute server windows, which defaults to three. A Contributor, Author, Editor, Administrator, or custom role with `edit_posts` can confirm a valid pair in one request when it also carries a valid WordPress REST nonce. Trusted status is derived by the server; client payload fields cannot claim it. Safety limits include 12 pairs per report; 120 evidence-bearing reports and 256 accepted unique pairs per window; 96 unqualified probation entries; 256 simultaneous active jobs and targets; a fixed 38-entry canonical width palette per target; 32 recent failure records; a 2,560-pixel automatic ceiling; WordPress's effective attachment srcset ceiling; and 50 generation attempts per day. Invalid or replay-only requests cannot consume the accepted-work budget, and extra replays never buy queue priority. Background generation also pauses before claiming work when the uploads filesystem has less than 256 MiB free; queued work remains for a later watchdog run. Missed-window low-confidence entries can be replaced under pressure, so one-off traffic cannot reserve the queue for 30 days.
 
 Automatic learning remains enabled indefinitely. The 30-day rule is only a cleanup threshold for stale unconfirmed evidence and terminal failure records after their last activity. They are removed during a later learning or status request. Active queue items, successful target history, attachment metadata, generated image files, and future learning do not expire after 30 days.
 
@@ -106,6 +106,10 @@ No. Front-end rendering only measures coverage and reads existing variants. Qual
 
 No. Activation is enough. Repeated gaps are verified, queued, generated, retried, and exposed through refreshed markup automatically. The admin queue is status only.
 
+= Do logged-in users need the same three confirmations? =
+
+Subscribers do. By default, Contributors, Authors, Editors, and Administrators do not: one valid gap report confirms immediately when WordPress authenticates the user with both the `edit_posts` capability and a valid REST nonce. Custom roles follow the capability, not the role name. Without both checks, the normal configured multi-window threshold applies.
+
 = What happens to data when I uninstall the plugin? =
 
 Data is retained by default to prevent accidental loss. Enable the uninstall cleanup setting first if you want uninstalling to remove settings, observations, and plugin-generated image files.
@@ -116,7 +120,7 @@ Only logged-in users with the `manage_options` capability. The full observer use
 
 = What does automatic visitor learning collect? =
 
-Visitors can submit only an HMAC-signed handle for a local image target and a canonical target-width bucket that the browser found inadequately covered. Eligible targets can also submit coarse viewport and rendered-slot buckets used to improve `sizes` hints. Reports contain no page URL, visitor identity, cookie, IP address, user agent, or referrer. Public requests never perform image generation directly.
+Visitors can submit only an HMAC-signed handle for a local image target and a canonical target-width bucket that the browser found inadequately covered. Eligible targets can also submit coarse viewport and rendered-slot buckets used to improve `sizes` hints. Anonymous and Subscriber requests omit cookies. Contributor-or-stronger requests use same-origin WordPress authentication only to prove capability; no page URL, visitor identity, IP address, user agent, or referrer is stored with the gap. Public requests never perform image generation directly.
 
 = Can one-pixel screen changes create endless image sizes? =
 
@@ -124,7 +128,7 @@ No. Near matches count as covered, and every remaining pixel width maps into a f
 
 = Does learning stop after 30 days? =
 
-No. Learning stays on. Thirty days only controls cleanup of abandoned, never-confirmed evidence and terminal failure records. A terminal failure can re-enter learning after a 24-hour cooldown when fresh multi-window evidence arrives. Active jobs, successful history, generated variants, and newly discovered screen sizes remain unaffected.
+No. Learning stays on. Thirty days only controls cleanup of abandoned, never-confirmed evidence and terminal failure records. A terminal failure can re-enter learning after a 24-hour cooldown when fresh evidence arrives under the same role-based confirmation rules. Active jobs, successful history, generated variants, and newly discovered screen sizes remain unaffected.
 
 = Does automatic processing work on every host? =
 
@@ -136,6 +140,7 @@ It uses WordPress image editors and WP-Cron. GD or Imagick must support the requ
 * Enable automatic target-bound visitor gap detection that sends nothing when current responsive candidates provide adequate coverage.
 * Sign every attachment or local asset target and verify it again on the server.
 * Confirm repeated gaps, then generate only the affected target through bounded WP-Cron jobs without administrator action.
+* Let nonce-authenticated users with `edit_posts` confirm a valid gap in one report while keeping the configured multi-window threshold for Subscribers and anonymous visitors.
 * Add fixed request, queue, target, per-image width, pixel, retry, and daily work limits.
 * Apply 30-day cleanup eligibility only to stale unconfirmed evidence and terminal failure records; active jobs and generated variants persist.
 * Keep automatic learning independent from administrator visits, approval, promotion, and the legacy page cache guard.
