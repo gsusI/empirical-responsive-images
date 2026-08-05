@@ -35,3 +35,12 @@ plugin-check:
 
 release-check: check
 	tools/wporg-release.sh all
+
+publish-auth-setup:
+	tools/wporg-publish.sh --setup-auth
+
+@publish-auth-check:
+	tools/wporg-publish.sh --check-auth
+
+publish: release-check
+	tools/wporg-publish.sh

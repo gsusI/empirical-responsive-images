@@ -88,6 +88,7 @@ build_zip() {
 			-x '${SLUG}/node_modules' '${SLUG}/node_modules/*' \
 			-x '${SLUG}/tests' '${SLUG}/tests/*' \
 			-x '${SLUG}/tmp' '${SLUG}/tmp/*' \
+			-x '${SLUG}/marketing' '${SLUG}/marketing/*' '${SLUG}/marketing/**' \
 			-x '${SLUG}/README*' '${SLUG}/**/README*' \
 			-x '${SLUG}/CONTRIBUTING*' '${SLUG}/**/CONTRIBUTING*' \
 			-x '${SLUG}/AGENTS*' '${SLUG}/**/AGENTS*' \
@@ -266,6 +267,7 @@ build_svn_tree() {
 	cp -R "${BUILD_DIR}/svn-tmp/${SLUG}/." "${SVN_DIR}/tags/${VERSION}/"
 	cp "${ROOT}/.wordpress-org"/banner-*.png "${SVN_DIR}/assets/"
 	cp "${ROOT}/.wordpress-org"/icon-*.png "${SVN_DIR}/assets/"
+	cp "${ROOT}/.wordpress-org"/screenshot-*.png "${SVN_DIR}/assets/"
 	rm -rf "${BUILD_DIR}/svn-tmp"
 	find "${SVN_DIR}" -maxdepth 3 -type f | sort
 }
