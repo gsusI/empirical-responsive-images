@@ -51,6 +51,31 @@ just release-check
 
 That command runs local quality gates, builds the wordpress.org ZIP, runs Plugin Check against the packaged artifact, and creates an SVN-ready tree under `build/wporg/svn`.
 
+Run the one-time WordPress.org SVN setup. It changes only the saved Keychain
+item's trusted application. The WordPress.org password is never shown, typed,
+printed, copied, or placed in a command argument:
+
+```sh
+just publish-auth-setup
+```
+
+Verify the credential is stored in macOS Keychain:
+
+```sh
+just publish-auth-check
+```
+
+Publish a validated release with one command:
+
+```sh
+just publish
+```
+
+The publisher creates a fresh SVN checkout and an immutable version tag. Normal
+publishes let SVN read its native Keychain credential without another password
+prompt. Rerun `just publish-auth-setup` only after replacing or upgrading the SVN
+binary.
+
 ## Operational guarantees
 
 - Activation is enough. Visitor learning, confirmation, generation, retries, and cache refresh run automatically; the admin screen is status and advanced configuration only.

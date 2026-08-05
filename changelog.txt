@@ -1,3 +1,23 @@
+= 0.3.8 - 2026-08-05 =
+* Performance - Learn safe static WebP attachments and request closer canonical widths for high-priority images when the palette can satisfy the tighter target.
+* Fixed - Force exact-width jobs to create their requested candidate instead of accepting a merely nearby existing file.
+* Compatibility - Keep both observer scripts out of WP Rocket's delayed JavaScript queue.
+
+= 0.3.7 - 2026-07-31 =
+* Changed - Rewrite the public WordPress.org description and FAQs in plain language while preserving privacy details, compatibility guidance, and performance caveats.
+
+= 0.3.6 - 2026-07-31 =
+* Changed - Add evidence-backed compatibility guidance for image optimizers, cache plugins, CDNs, lazy loading, page builders, and dynamic images.
+
+= 0.3.5 - 2026-07-31 =
+* Changed - Map the WordPress.org listing to current and legacy PageSpeed image-delivery diagnostics while stating exactly which recommendations the plugin does and does not address.
+
+= 0.3.4 - 2026-07-31 =
+* Changed - Rewrite the WordPress.org listing around responsive image optimization, evidence-backed image sizes, WebP/AVIF, PageSpeed, and user-focused FAQs without changing runtime behavior.
+
+= 0.3.3 - 2026-07-31 =
+* Add public directory screenshots showing the evidence workflow, performance result, privacy summary, observation tables, automatic queue, and registered sizes.
+
 = 0.3.2 - 2026-07-31 =
 * Performance - Keep automatic gap-report requests out of initial page navigation by waiting for visitor interaction or page exit.
 * Fixed - Consume visible-page REST response bodies and reserve keepalive transport for the page-exit fallback.
