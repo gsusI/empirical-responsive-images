@@ -147,10 +147,28 @@ final class ImageSizesTest extends TestCase {
 			'class="empirical-responsive-images-visitor-gap-detector-script"',
 			$tag
 		);
+		self::assertStringContainsString( 'data-nowprocket="1"', $tag );
 		self::assertStringContainsString(
 			'data-empirical-responsive-images-visitor-gap-confirmation-nonce="test-nonce-wp_rest"',
 			$tag
 		);
+	}
+
+	public function test_diagnostic_observer_bypasses_wp_rocket_delay(): void {
+		$GLOBALS['eri_test_current_user_can_manage'] = true;
+		$image_sizes = new Image_Sizes( new Settings(), new Observation_Store() );
+
+		$tag = $image_sizes->filter_observer_script_tag(
+			'<script src="observer.js"></script>',
+			'empirical-responsive-images-observer',
+			'https://example.test/observer.js'
+		);
+
+		self::assertStringContainsString(
+			'class="empirical-responsive-images-diagnostic-observer-script"',
+			$tag
+		);
+		self::assertStringContainsString( 'data-nowprocket="1"', $tag );
 	}
 
 	public function test_gap_detector_receives_only_supported_enabled_frontend_formats(): void {

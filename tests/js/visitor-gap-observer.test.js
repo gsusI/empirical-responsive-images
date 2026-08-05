@@ -63,6 +63,10 @@ function makeStaticImage(definition = {}) {
 			eventHandlers[name] = callback;
 		},
 		getAttribute: (name) => {
+			if (name === 'fetchpriority') {
+				return definition.fetchPriority || '';
+			}
+
 			if (name === 'srcset') {
 				return srcset;
 			}
@@ -161,6 +165,10 @@ function runDetector(srcset, renderedWidth, options = {}) {
 		},
 		parentElement: picture,
 		getAttribute: (name) => {
+			if (name === 'fetchpriority') {
+				return options.fetchPriority || '';
+			}
+
 			if (name === 'srcset') {
 				return currentSrcset;
 			}
@@ -457,6 +465,32 @@ test('small and one-pixel boundary widths use deterministic canonical buckets', 
 
 test('covered page performs no visitor request', () => {
 	const requests = runDetector('image-640.jpg 640w, image-768.jpg 768w', 640);
+
+	assert.equal(requests.length, 0);
+});
+
+test('high-priority image reports a closer viable width', () => {
+	const requests = runDetector('image-600.webp 600w, image-768.webp 768w', 378, {
+		currentSrc: 'https://example.test/uploads/image-768.webp',
+		devicePixelRatio: 1.75,
+		fetchPriority: 'high',
+		requiredFormats: []
+	});
+
+	assert.equal(requests.length, 1);
+	assert.deepEqual(JSON.parse(requests[0].options.body), {
+		gaps: [
+			{ target: 'signed-target', width: 650 }
+		]
+	});
+});
+
+test('high-priority image keeps normal tolerance when palette cannot improve it', () => {
+	const requests = runDetector('image-796.webp 796w', 700, {
+		currentSrc: 'https://example.test/uploads/image-796.webp',
+		fetchPriority: 'high',
+		requiredFormats: []
+	});
 
 	assert.equal(requests.length, 0);
 });

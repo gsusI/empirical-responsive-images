@@ -360,6 +360,7 @@ final class Background_Optimizer {
 		$lease          = sanitize_text_field( (string) ( $job['lease_token'] ?? '' ) );
 		$viewport_width = absint( $job['viewport_width'] ?? 0 );
 		$slot_width     = absint( $job['slot_width'] ?? 0 );
+		$creates_width  = ! empty( $job['creates_width'] );
 
 		if ( '' === $token || $width < 1 || '' === $lease ) {
 			$this->complete_safely( $job_id, $lease, false, 'invalid_job' );
@@ -390,7 +391,7 @@ final class Background_Optimizer {
 				return;
 			}
 
-			$result = $this->process_attachment( $target, $width, $viewport_width, $slot_width );
+			$result = $this->process_attachment( $target, $width, $viewport_width, $slot_width, $creates_width );
 		} elseif ( 'asset' === (string) ( $target['type'] ?? '' ) ) {
 			if ( ! $this->settings->is_asset_processing_enabled() ) {
 				$this->store->discard_job( $job_id, $lease );
@@ -401,7 +402,7 @@ final class Background_Optimizer {
 				return;
 			}
 
-			$result = $this->process_asset( $target, $width, $viewport_width, $slot_width );
+			$result = $this->process_asset( $target, $width, $viewport_width, $slot_width, $creates_width );
 		} else {
 			$result = array(
 				'success' => false,
@@ -428,11 +429,16 @@ final class Background_Optimizer {
 	 * @param int   $width          Target width.
 	 * @param int   $viewport_width Coarse viewport bucket.
 	 * @param int   $slot_width     Coarse CSS slot bucket.
+	 * @param bool  $creates_width  Whether evidence requested a new exact width.
 	 * @return array
 	 */
-	private function process_attachment( array $target, int $width, int $viewport_width, int $slot_width ): array {
+	private function process_attachment( array $target, int $width, int $viewport_width, int $slot_width, bool $creates_width ): array {
 		$attachment_id    = absint( $target['attachment_id'] ?? 0 );
-		$required_formats = $this->format_generator->get_required_frontend_formats();
+		$required_formats = Visitor_Gap_Target::get_applicable_formats(
+			$target,
+			$this->asset_manager,
+			$this->format_generator->get_required_frontend_formats()
+		);
 
 		if ( $attachment_id < 1 || ! wp_attachment_is_image( $attachment_id ) ) {
 			return array(
@@ -441,7 +447,10 @@ final class Background_Optimizer {
 			);
 		}
 
-		if ( ! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats ) ) {
+		if (
+			! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats )
+			|| ( $creates_width && ! Visitor_Gap_Target::has_exact_width( $target, $width, $this->asset_manager ) )
+		) {
 			if ( ! Visitor_Gap_Target::has_exact_width( $target, $width, $this->asset_manager ) ) {
 				$size_name = Image_Sizes::name_for_width( $width );
 				$filter    = static function ( array $sizes ) use ( $size_name ): array {
@@ -519,7 +528,10 @@ final class Background_Optimizer {
 			}
 		}
 
-		if ( ! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats ) ) {
+		if (
+			! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats )
+			|| ( $creates_width && ! Visitor_Gap_Target::has_exact_width( $target, $width, $this->asset_manager ) )
+		) {
 			return array(
 				'success' => false,
 				'error'   => 'attachment_optimization_missing',
@@ -637,11 +649,16 @@ final class Background_Optimizer {
 	 * @param int   $width          Target width.
 	 * @param int   $viewport_width Coarse viewport bucket.
 	 * @param int   $slot_width     Coarse CSS slot bucket.
+	 * @param bool  $creates_width  Whether evidence requested a new exact width.
 	 * @return array
 	 */
-	private function process_asset( array $target, int $width, int $viewport_width, int $slot_width ): array {
+	private function process_asset( array $target, int $width, int $viewport_width, int $slot_width, bool $creates_width ): array {
 		$url              = isset( $target['url'] ) && is_string( $target['url'] ) ? esc_url_raw( $target['url'] ) : '';
-		$required_formats = $this->format_generator->get_required_frontend_formats();
+		$required_formats = Visitor_Gap_Target::get_applicable_formats(
+			$target,
+			$this->asset_manager,
+			$this->format_generator->get_required_frontend_formats()
+		);
 
 		if ( '' === $url ) {
 			return array(
@@ -650,7 +667,10 @@ final class Background_Optimizer {
 			);
 		}
 
-		if ( ! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats ) ) {
+		if (
+			! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats )
+			|| ( $creates_width && ! Visitor_Gap_Target::has_exact_width( $target, $width, $this->asset_manager ) )
+		) {
 			if ( ! $this->renew_lock() ) {
 				return array(
 					'success' => false,
@@ -668,7 +688,10 @@ final class Background_Optimizer {
 			}
 		}
 
-		if ( ! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats ) ) {
+		if (
+			! Visitor_Gap_Target::is_optimization_covered( $target, $width, $this->asset_manager, $required_formats )
+			|| ( $creates_width && ! Visitor_Gap_Target::has_exact_width( $target, $width, $this->asset_manager ) )
+		) {
 			return array(
 				'success' => false,
 				'error'   => 'asset_optimization_missing',
