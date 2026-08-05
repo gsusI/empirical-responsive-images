@@ -334,11 +334,15 @@ final class Visitor_Gap_Target {
 			return array();
 		}
 
+		$type        = wp_check_filetype( $file );
+		$source_mime = is_string( $type['type'] ?? null ) ? $type['type'] : '';
+
 		return array_values(
 			array_filter(
 				$formats,
-				static function ( string $format ) use ( $file ): bool {
-					return Alpha_Compat::can_use_format_for_source( $file, $format );
+				static function ( string $format ) use ( $file, $source_mime ): bool {
+					return 'image/' . $format !== $source_mime
+						&& Alpha_Compat::can_use_format_for_source( $file, $format );
 				}
 			)
 		);
@@ -571,8 +575,9 @@ final class Visitor_Gap_Target {
 		}
 
 		$type = wp_check_filetype( $file );
+		$mime = (string) ( $type['type'] ?? '' );
 
-		if ( in_array( (string) ( $type['type'] ?? '' ), array( 'image/gif', 'image/webp', 'image/avif' ), true ) ) {
+		if ( in_array( $mime, array( 'image/gif', 'image/avif' ), true ) ) {
 			return array();
 		}
 
@@ -596,6 +601,10 @@ final class Visitor_Gap_Target {
 			return self::cache_attachment_dimensions( $key, array() );
 		}
 
+		if ( 'image/webp' === $mime && ! self::webp_is_safely_static( $file, (int) $bytes ) ) {
+			return self::cache_attachment_dimensions( $key, array() );
+		}
+
 		$size = wp_getimagesize( $file );
 
 		if ( ! is_array( $size ) || empty( $size[0] ) || empty( $size[1] ) ) {
@@ -610,6 +619,90 @@ final class Visitor_Gap_Target {
 				'path'   => $file,
 			)
 		);
+	}
+
+	/**
+	 * Accept only well-formed, non-animated WebP attachment sources.
+	 *
+	 * WordPress image editors generally flatten animated WebP while creating
+	 * sub-sizes. Scan bounded RIFF chunk headers and fail closed on malformed,
+	 * ambiguous, or explicitly animated containers.
+	 *
+	 * @param string $file      Source path.
+	 * @param int    $file_size Verified source byte size.
+	 * @return bool
+	 */
+	private static function webp_is_safely_static( string $file, int $file_size ): bool {
+		if ( $file_size < 20 ) {
+			return false;
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads one bounded local RIFF header, not a URL.
+		$header = file_get_contents( $file, false, null, 0, 12 );
+
+		if ( ! is_string( $header ) || 12 !== strlen( $header ) || 'RIFF' !== substr( $header, 0, 4 ) || 'WEBP' !== substr( $header, 8, 4 ) ) {
+			return false;
+		}
+
+		$size_data = unpack( 'Vsize', substr( $header, 4, 4 ) );
+		$riff_size = is_array( $size_data ) ? absint( $size_data['size'] ?? 0 ) : 0;
+		$riff_end  = 8 + $riff_size;
+
+		if ( $riff_size < 12 || $riff_end !== $file_size ) {
+			return false;
+		}
+
+		$offset           = 12;
+		$found_image_data = false;
+
+		for ( $chunk_count = 0; $chunk_count < 128 && $offset + 8 <= $riff_end; ++$chunk_count ) {
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads one bounded local RIFF chunk header.
+			$chunk_header = file_get_contents( $file, false, null, $offset, 8 );
+
+			if ( ! is_string( $chunk_header ) || 8 !== strlen( $chunk_header ) ) {
+				return false;
+			}
+
+			$chunk_type   = substr( $chunk_header, 0, 4 );
+			$length_data  = unpack( 'Vlength', substr( $chunk_header, 4, 4 ) );
+			$chunk_length = is_array( $length_data ) ? absint( $length_data['length'] ?? 0 ) : 0;
+			$data_offset  = $offset + 8;
+
+			if ( $chunk_length > $riff_end - $data_offset ) {
+				return false;
+			}
+
+			$next_offset = $data_offset + $chunk_length + ( $chunk_length % 2 );
+
+			if ( $next_offset > $riff_end || $next_offset <= $offset ) {
+				return false;
+			}
+
+			if ( in_array( $chunk_type, array( 'ANIM', 'ANMF' ), true ) ) {
+				return false;
+			}
+
+			if ( 'VP8X' === $chunk_type ) {
+				if ( $chunk_length < 10 ) {
+					return false;
+				}
+
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads one bounded local WebP feature byte.
+				$feature_byte = file_get_contents( $file, false, null, $data_offset, 1 );
+
+				if ( ! is_string( $feature_byte ) || 1 !== strlen( $feature_byte ) || 0 !== ( ord( $feature_byte ) & 0x02 ) ) {
+					return false;
+				}
+			}
+
+			if ( in_array( $chunk_type, array( 'VP8 ', 'VP8L' ), true ) ) {
+				$found_image_data = true;
+			}
+
+			$offset = $next_offset;
+		}
+
+		return $found_image_data && $offset === $riff_end;
 	}
 
 	/**

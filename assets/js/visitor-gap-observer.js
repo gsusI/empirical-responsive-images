@@ -49,8 +49,10 @@
 		return selected.length ? selected[0] : 0;
 	}
 
-	function isTargetCovered(targetWidth, candidateWidths) {
+	function isTargetCovered(targetWidth, candidateWidths, maximumNumerator, maximumDenominator) {
 		var target = Math.max(1, Math.ceil(Number(targetWidth || 0)));
+		var maximumNum = Number(maximumNumerator || 6);
+		var maximumDen = Number(maximumDenominator || 5);
 
 		return candidateWidths.some(function (candidateWidth) {
 			var candidate = Number(candidateWidth || 0);
@@ -58,14 +60,14 @@
 			return Number.isFinite(candidate)
 				&& candidate > 0
 				&& (50 * candidate) >= (49 * target)
-				&& (5 * candidate) <= (6 * target);
+				&& (maximumDen * candidate) <= (maximumNum * target);
 		});
 	}
 
-	function coveringCandidateWidth(targetWidth, candidateWidths) {
+	function coveringCandidateWidth(targetWidth, candidateWidths, maximumNumerator, maximumDenominator) {
 		var target = Math.max(1, Math.ceil(Number(targetWidth || 0)));
 		var covered = candidateWidths.map(Number).filter(function (candidateWidth) {
-			return isTargetCovered(target, [candidateWidth]);
+			return isTargetCovered(target, [candidateWidth], maximumNumerator, maximumDenominator);
 		}).sort(function (a, b) {
 			var distance = Math.abs(a - target) - Math.abs(b - target);
 
@@ -73,6 +75,14 @@
 		});
 
 		return covered.length ? covered[0] : 0;
+	}
+
+	function isHighPriorityImage(image) {
+		var priority = image && image.getAttribute
+			? image.getAttribute('fetchpriority') || image.fetchPriority || ''
+			: '';
+
+		return String(priority).trim().toLowerCase() === 'high';
 	}
 
 	function parseBucketWidths(widths) {
@@ -391,7 +401,21 @@
 			Math.ceil(renderedWidth * dpr)
 		);
 		var candidateWidths = getCandidateWidths(image, renderedWidth);
-		var nativeWidth = coveringCandidateWidth(targetWidth, candidateWidths);
+		var requestedBucketWidth = bucketWidth(
+			targetWidth,
+			bucketWidths,
+			Math.min(maximumWidth, targetMaximumWidth || maximumWidth)
+		);
+		var useCriticalCoverage = isHighPriorityImage(image)
+			&& isTargetCovered(targetWidth, [requestedBucketWidth], 11, 10);
+		var coverageMaximumNumerator = useCriticalCoverage ? 11 : 6;
+		var coverageMaximumDenominator = useCriticalCoverage ? 10 : 5;
+		var nativeWidth = coveringCandidateWidth(
+			targetWidth,
+			candidateWidths,
+			coverageMaximumNumerator,
+			coverageMaximumDenominator
+		);
 		var learnsLayout = 'asset' === targetKind || 'attachment' === targetKind;
 		var selectedWidth = learnsLayout
 			? getSelectedCandidateWidth(image, renderedWidth)
@@ -423,9 +447,22 @@
 		});
 
 		if (
-			!isTargetCovered(targetWidth, candidateWidths)
+			!isTargetCovered(
+				targetWidth,
+				candidateWidths,
+				coverageMaximumNumerator,
+				coverageMaximumDenominator
+			)
 			|| !requiredFormatsCovered
-			|| (selectedWidth > 0 && !isTargetCovered(targetWidth, [selectedWidth]))
+			|| (
+				selectedWidth > 0
+				&& !isTargetCovered(
+					targetWidth,
+					[selectedWidth],
+					coverageMaximumNumerator,
+					coverageMaximumDenominator
+				)
+			)
 		) {
 			queueGap(
 				target,

@@ -193,6 +193,7 @@ final class Image_Sizes {
 			$attributes         = array(
 				'class'                   => 'empirical-responsive-images-visitor-gap-detector-script',
 				'data-cfasync'            => 'false',
+				'data-nowprocket'         => '1',
 				'data-no-defer'           => '1',
 				'data-no-minify'          => '1',
 				'data-no-optimize'        => '1',
@@ -220,6 +221,7 @@ final class Image_Sizes {
 		$attributes = array(
 			'class'                                        => 'empirical-responsive-images-diagnostic-observer-script',
 			'data-cfasync'                                 => 'false',
+			'data-nowprocket'                              => '1',
 			'data-no-defer'                                => '1',
 			'data-no-minify'                               => '1',
 			'data-no-optimize'                             => '1',

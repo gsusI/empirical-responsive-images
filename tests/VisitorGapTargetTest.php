@@ -36,7 +36,7 @@ final class VisitorGapTargetTest extends TestCase {
 	}
 
 	protected function tearDown(): void {
-		foreach ( array( $this->sidecar_relative_path(), 'source-icon-1024.webp', 'source-icon-1024.png' ) as $filename ) {
+		foreach ( array( $this->sidecar_relative_path(), 'source-icon-1024.webp', 'source-icon-1024.png', 'static-source.webp', 'animated-source.webp' ) as $filename ) {
 			$path = $this->upload_directory . '/' . $filename;
 
 			if ( is_file( $path ) ) {
@@ -99,6 +99,20 @@ final class VisitorGapTargetTest extends TestCase {
 		$manager = new Asset_Manager( new Settings() );
 
 		self::assertTrue( Visitor_Gap_Target::has_exact_width( $target, 1024, $manager ) );
+	}
+
+	public function test_static_webp_attachment_can_participate_in_learning(): void {
+		$target   = $this->webp_attachment_target( 809, false );
+		$manager  = new Asset_Manager( new Settings() );
+		$resolved = Visitor_Gap_Target::resolve( $target, $manager );
+
+		self::assertNotSame( '', $target );
+		self::assertSame( 'attachment', $resolved['type'] ?? '' );
+		self::assertSame( array(), Visitor_Gap_Target::get_applicable_formats( $resolved, $manager, array( 'webp' ) ) );
+	}
+
+	public function test_animated_webp_attachment_fails_closed(): void {
+		self::assertSame( '', $this->webp_attachment_target( 810, true ) );
 	}
 
 	public function test_missing_metadata_subsize_file_is_not_coverage(): void {
@@ -214,6 +228,41 @@ final class VisitorGapTargetTest extends TestCase {
 		$token = Visitor_Gap_Target::token_for_attachment( $attachment_id );
 
 		return Visitor_Gap_Target::resolve( $token, new Asset_Manager( new Settings() ) );
+	}
+
+	/**
+	 * Create a tiny real WebP fixture with an optional animation feature flag.
+	 *
+	 * @param int  $attachment_id Attachment ID.
+	 * @param bool $animated      Whether to mark the VP8X container animated.
+	 * @return string Signed token, or empty when rejected.
+	 */
+	private function webp_attachment_target( int $attachment_id, bool $animated ): string {
+		$filename = $animated ? 'animated-source.webp' : 'static-source.webp';
+		$source   = $this->upload_directory . '/' . $filename;
+		$contents = base64_decode(
+			'UklGRloAAABXRUJQVlA4WAoAAAAQAAAAAQAAAQAAQUxQSAUAAAAA/Pz8/ABWUDggLgAAAPABAJ0BKgIAAgACADQlmAJ0ugADCPHKgAD++xgHzobpv1difChBP43m81qxAAA=',
+			true
+		);
+
+		self::assertIsString( $contents );
+
+		if ( $animated ) {
+			$contents[20] = chr( ord( $contents[20] ) | 0x02 );
+		}
+
+		self::assertNotFalse( file_put_contents( $source, $contents ) );
+
+		$GLOBALS['eri_test_image_attachments'][ $attachment_id ]   = true;
+		$GLOBALS['eri_test_attachment_files'][ $attachment_id ]    = $source;
+		$GLOBALS['eri_test_attachment_metadata'][ $attachment_id ] = array(
+			'file'   => $filename,
+			'width'  => 2,
+			'height' => 2,
+			'sizes'  => array(),
+		);
+
+		return Visitor_Gap_Target::token_for_attachment( $attachment_id );
 	}
 
 	private function sidecar_relative_path(): string {

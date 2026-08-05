@@ -602,6 +602,17 @@ if ( ! wp_script_is( $gap_observer_handle, 'enqueued' ) ) {
 	$fail( 'administrator visit did not participate in automatic learning' );
 }
 
+$gap_script_tag = $image_sizes->filter_observer_script_tag(
+	// phpcs:ignore WordPress.WP.EnqueuedResources.NonEnqueuedScript -- Fixture passed to the script-tag filter.
+	'<script src="visitor-gap-observer.js"></script>',
+	$gap_observer_handle,
+	'visitor-gap-observer.js'
+);
+
+if ( false === strpos( $gap_script_tag, 'data-nowprocket="1"' ) ) {
+	$fail( 'visitor gap observer was not excluded from WP Rocket delay' );
+}
+
 $localized_data = wp_scripts()->get_data( $observer_handle, 'data' );
 
 if ( ! is_string( $localized_data ) || false === strpos( $localized_data, '"nonce"' ) ) {
@@ -617,6 +628,10 @@ $script_tag = $image_sizes->filter_observer_script_tag(
 
 if ( false === strpos( $script_tag, 'data-empirical-responsive-images-nonce=' ) ) {
 	$fail( 'observer fallback attributes did not include a REST nonce' );
+}
+
+if ( false === strpos( $script_tag, 'data-nowprocket="1"' ) ) {
+	$fail( 'diagnostic observer was not excluded from WP Rocket delay' );
 }
 
 $gap_purge_count = 0;
