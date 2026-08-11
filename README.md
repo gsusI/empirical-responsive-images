@@ -1,5 +1,8 @@
 # Empirical Responsive Images
 
+> [!IMPORTANT]
+> **[Download Empirical Responsive Images from WordPress.org](https://wordpress.org/plugins/empirical-responsive-images/)**
+
 Empirical Responsive Images learns which image sizes a WordPress site actually needs, then automatically generates matching responsive variants and WebP/AVIF sidecars when the server supports them.
 
 It is built for people who want better responsive image output without sending media to an external optimization service.
