@@ -109,6 +109,26 @@ final class RESTControllerTest extends TestCase {
 		self::assertArrayNotHasKey( Visitor_Gap_Store::OPTION_NAME, $GLOBALS['eri_test_options'] );
 	}
 
+	public function test_cached_v2_reports_are_accepted_without_critical_protocol_upgrade(): void {
+		$this->enable_visitor_gap_learning();
+		$request = $this->visitor_gap_request( array( $this->gap( 650 ) ) );
+		$request->set_header( 'X-Empirical-Responsive-Images-Bucket-Version', '2' );
+		$response = $this->controller()->record_visitor_gap_hints( $request );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		self::assertSame( 1, $response->get_data()['accepted'] );
+	}
+
+	public function test_critical_report_reaches_queue_with_its_upward_width(): void {
+		$this->enable_visitor_gap_learning();
+		$gap = $this->gap( 672 );
+		$gap['critical'] = true;
+		$response = $this->controller()->record_visitor_gap_hints( $this->visitor_gap_request( array( $gap ) ) );
+		self::assertInstanceOf( \WP_REST_Response::class, $response );
+		self::assertSame( 1, $response->get_data()['accepted'] );
+		$jobs = $GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ]['jobs'];
+		self::assertSame( 672, reset( $jobs )['width'] );
+	}
+
 	public function test_stale_bucket_protocol_is_rejected_without_writes(): void {
 		$this->enable_visitor_gap_learning();
 		$request = $this->visitor_gap_request( array( $this->gap( 640 ) ) );

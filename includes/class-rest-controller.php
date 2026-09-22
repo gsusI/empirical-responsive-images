@@ -207,7 +207,7 @@ final class REST_Controller {
 
 		$bucket_version = absint( $request->get_header( 'X-Empirical-Responsive-Images-Bucket-Version' ) );
 
-		if ( Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION !== $bucket_version ) {
+		if ( ! in_array( $bucket_version, array( 2, Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION ), true ) ) {
 			return new \WP_Error(
 				'empirical_responsive_images_invalid_visitor_gap_bucket_version',
 				__( 'Visitor image gap bucket version is invalid.', 'empirical-responsive-images' ),

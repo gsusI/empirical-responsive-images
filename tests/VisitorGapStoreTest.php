@@ -81,6 +81,44 @@ final class VisitorGapStoreTest extends TestCase {
 		self::assertSame( 5120, Visitor_Gap_Store::canonical_width( 5029, 5120 ) );
 	}
 
+	public function test_critical_palette_never_rounds_below_target_and_remains_bounded(): void {
+		$observed = array();
+		for ( $target = 1; $target <= 5120; ++$target ) {
+			$width = Visitor_Gap_Store::critical_width( $target );
+			self::assertGreaterThanOrEqual( $target, $width );
+			self::assertLessThanOrEqual( 17 * $target, 16 * $width );
+			self::assertSame( $width, Visitor_Gap_Store::critical_width( $width ) );
+			self::assertSame( $target, Visitor_Gap_Store::critical_width( $target, $target ) );
+			$observed[ $width ] = true;
+		}
+		self::assertLessThanOrEqual( 160, count( $observed ) );
+		self::assertSame( 672, Visitor_Gap_Store::critical_width( 662 ) );
+		self::assertSame( 665, Visitor_Gap_Store::critical_width( 662, 665 ) );
+	}
+
+	public function test_critical_report_preserves_upward_width_instead_of_rebucketing(): void {
+		$store = new Visitor_Gap_Store( $this->asset_manager() );
+		$gap = $this->gap( $this->attachment_target(), 672 );
+		$gap['_bucket_protocol_version'] = Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION;
+		$gap['critical'] = true;
+		$result = $store->record_gaps( array( $gap ), new Settings(), true );
+		$job = reset( $store->get_data()['jobs'] );
+		self::assertSame( 1, $result['queued'] );
+		self::assertSame( 672, $job['width'] );
+		self::assertTrue( $job['creates_width'] );
+	}
+
+	public function test_cached_v2_report_retains_its_original_width_protocol(): void {
+		$store = new Visitor_Gap_Store( $this->asset_manager() );
+		$gap = $this->gap( $this->attachment_target(), 650 );
+		$gap['_bucket_protocol_version'] = 2;
+		$gap['critical'] = true;
+		$result = $store->record_gaps( array( $gap ), new Settings(), true );
+		$job = reset( $store->get_data()['jobs'] );
+		self::assertSame( 1, $result['queued'] );
+		self::assertSame( 650, $job['width'] );
+	}
+
 	public function test_three_distinct_windows_automatically_queue_job(): void {
 		$store  = new Visitor_Gap_Store( $this->asset_manager() );
 		$target = $this->attachment_target();

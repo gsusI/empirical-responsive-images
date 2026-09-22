@@ -248,6 +248,16 @@ run_wp_check() {
 		return "${status}"
 	fi
 
+	# Plugin Check can report findings while returning status zero.
+	if awk -F '\t' '$3 == "ERROR" || $3 == "WARNING" { found = 1 } END { exit !found }' "${BUILD_DIR}/plugin-check.txt"; then
+		echo "Plugin Check reported unresolved findings." >&2
+		return 1
+	fi
+
+	# Reproduce the first request after an in-place upgrade, with a cache API
+	# available early but unsafe until WordPress has finished booting.
+	wp_cli eval "wp_mkdir_p( WPMU_PLUGIN_DIR ); copy( '/review-tools/wporg-upgrade-probe.php', WPMU_PLUGIN_DIR . '/eri-review-upgrade-probe.php' ); update_option( 'empirical_responsive_images_version', '0.3.8' );"
+	wp_cli eval "if ( '0.3.8' !== get_option( 'eri_review_upgrade_purge' ) || EMPIRICAL_RESPONSIVE_IMAGES_VERSION !== get_option( 'empirical_responsive_images_version' ) ) { WP_CLI::error( 'Upgrade lifecycle probe failed.' ); } unlink( WPMU_PLUGIN_DIR . '/eri-review-upgrade-probe.php' ); delete_option( 'eri_review_upgrade_purge' ); WP_CLI::success( 'Upgrade purge waited for wp_loaded and version was recorded afterward.' );"
 	run_authorization_smoke
 
 	echo "Readme Tested up to: ${TESTED_UP_TO}" | tee "${BUILD_DIR}/tested-up-to.txt"

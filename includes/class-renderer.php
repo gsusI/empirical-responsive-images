@@ -121,6 +121,17 @@ final class Renderer {
 			$rewrite_id    = 0;
 
 			while ( $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
+				// Keep browser-first values when upstream filters append duplicate attributes.
+				// Optimizers may otherwise keep the last sizes/srcset and undo authored layout.
+				foreach ( array( 'srcset', 'sizes', 'width', 'height' ) as $attribute ) {
+					$value = $processor->get_attribute( $attribute );
+
+					if ( null !== $value ) {
+						$processor->remove_attribute( $attribute );
+						$processor->set_attribute( $attribute, $value );
+					}
+				}
+
 				$marker                   = (string) ++$rewrite_id;
 				$breadcrumbs              = $processor->get_breadcrumbs();
 				$rewrite_modes[ $marker ] = in_array( 'PICTURE', $breadcrumbs, true ) ? 'picture' : 'standalone';
@@ -176,7 +187,75 @@ final class Renderer {
 			$tagged
 		);
 
-		return is_string( $output ) ? $output : $html;
+		return is_string( $output ) ? $this->filter_image_preloads( $output ) : $html;
+	}
+
+	/**
+	 * Keep stale responsive preloads aligned with their unambiguous priority image.
+	 *
+	 * @param string $html Rendered HTML, including any cache-plugin preload hints.
+	 * @return string
+	 */
+	public function filter_image_preloads( string $html ): string {
+		if ( false === stripos( $html, '<link' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
+			return $html;
+		}
+
+		$processor = \WP_HTML_Processor::create_fragment( $html );
+		if ( null === $processor ) {
+			return $html;
+		}
+
+		$images = array();
+		while ( $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
+			if ( 'high' !== strtolower( (string) $processor->get_attribute( 'fetchpriority' ) ) ) {
+				continue;
+			}
+
+			$src = (string) $processor->get_attribute( 'src' );
+			if ( '' === $src ) {
+				continue;
+			}
+
+			$attributes = array(
+				'srcset' => (string) $processor->get_attribute( 'srcset' ),
+				'sizes'  => trim( (string) $processor->get_attribute( 'sizes' ) ),
+			);
+			$excluded   = in_array( 'PICTURE', $processor->get_breadcrumbs(), true )
+				|| null !== $processor->get_attribute( 'crossorigin' )
+				|| '' === $attributes['srcset'] || '' === $attributes['sizes'];
+			if ( $excluded || ( array_key_exists( $src, $images ) && $images[ $src ] !== $attributes ) ) {
+				$images[ $src ] = null;
+			} else {
+				$images[ $src ] = $attributes;
+			}
+		}
+
+		if ( empty( $images ) ) {
+			return $html;
+		}
+
+		$links = new \WP_HTML_Tag_Processor( $html );
+		while ( $links->next_tag( array( 'tag_name' => 'LINK' ) ) ) {
+			if ( 'preload' !== strtolower( (string) $links->get_attribute( 'rel' ) ) || 'image' !== strtolower( (string) $links->get_attribute( 'as' ) ) ) {
+				continue;
+			}
+
+			$image = $images[ (string) $links->get_attribute( 'href' ) ] ?? null;
+			if ( ! is_array( $image )
+				|| '' === (string) $links->get_attribute( 'imagesrcset' )
+				|| trim( (string) $links->get_attribute( 'imagesizes' ) ) !== $image['sizes']
+				|| null !== $links->get_attribute( 'media' )
+				|| null !== $links->get_attribute( 'type' )
+				|| null !== $links->get_attribute( 'crossorigin' )
+			) {
+				continue;
+			}
+
+			$links->set_attribute( 'imagesrcset', $image['srcset'] );
+		}
+
+		return $links->get_updated_html();
 	}
 
 	/**

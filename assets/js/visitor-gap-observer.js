@@ -49,7 +49,7 @@
 		return selected.length ? selected[0] : 0;
 	}
 
-	function isTargetCovered(targetWidth, candidateWidths, maximumNumerator, maximumDenominator) {
+	function isTargetCovered(targetWidth, candidateWidths, maximumNumerator, maximumDenominator, requireFullWidth) {
 		var target = Math.max(1, Math.ceil(Number(targetWidth || 0)));
 		var maximumNum = Number(maximumNumerator || 6);
 		var maximumDen = Number(maximumDenominator || 5);
@@ -59,15 +59,15 @@
 
 			return Number.isFinite(candidate)
 				&& candidate > 0
-				&& (50 * candidate) >= (49 * target)
+				&& (requireFullWidth ? candidate >= target : (50 * candidate) >= (49 * target))
 				&& (maximumDen * candidate) <= (maximumNum * target);
 		});
 	}
 
-	function coveringCandidateWidth(targetWidth, candidateWidths, maximumNumerator, maximumDenominator) {
+	function coveringCandidateWidth(targetWidth, candidateWidths, maximumNumerator, maximumDenominator, requireFullWidth) {
 		var target = Math.max(1, Math.ceil(Number(targetWidth || 0)));
 		var covered = candidateWidths.map(Number).filter(function (candidateWidth) {
-			return isTargetCovered(target, [candidateWidth], maximumNumerator, maximumDenominator);
+			return isTargetCovered(target, [candidateWidth], maximumNumerator, maximumDenominator, requireFullWidth);
 		}).sort(function (a, b) {
 			var distance = Math.abs(a - target) - Math.abs(b - target);
 
@@ -126,6 +126,20 @@
 		return 0;
 	}
 
+	// Round upward so browsers can select the learned width without upscaling.
+	// Power-of-two steps keep the public palette finite and within 6.25%.
+	function criticalWidth(targetWidth, maximumWidth) {
+		var maximum = Math.max(1, Math.min(5120, Math.floor(Number(maximumWidth || 2560))));
+		var target = Math.min(maximum, Math.max(1, Math.ceil(Number(targetWidth || 0))));
+		var step = 1;
+
+		while (step * 32 < target) {
+			step *= 2;
+		}
+
+		return Math.min(maximum, Math.ceil(target / step) * step);
+	}
+
 	function parseRequiredFormats(formats) {
 		if (typeof formats === 'string') {
 			try {
@@ -154,6 +168,7 @@
 		testHook.coveringCandidateWidth = coveringCandidateWidth;
 		testHook.parseBucketWidths = parseBucketWidths;
 		testHook.bucketWidth = bucketWidth;
+		testHook.criticalWidth = criticalWidth;
 		testHook.selectedCandidateWidth = selectedCandidateWidth;
 	}
 
@@ -222,8 +237,10 @@
 		scheduleFlush();
 	}
 
-	function queueGap(target, targetWidth, targetMaximumWidth, nativeWidth, viewportWidth, slotWidth) {
-		var width = bucketWidth(targetWidth, bucketWidths, Math.min(maximumWidth, targetMaximumWidth || maximumWidth));
+	function queueGap(target, targetWidth, targetMaximumWidth, nativeWidth, viewportWidth, slotWidth, critical) {
+		var width = critical
+			? criticalWidth(targetWidth, Math.min(maximumWidth, targetMaximumWidth || maximumWidth))
+			: bucketWidth(targetWidth, bucketWidths, Math.min(maximumWidth, targetMaximumWidth || maximumWidth));
 		var key = target + '|' + width;
 
 		if (
@@ -240,6 +257,10 @@
 			target: target,
 			width: width
 		};
+
+		if (critical) {
+			gap.critical = true;
+		}
 
 		if (nativeWidth > 0) {
 			gap.native_width = Math.floor(nativeWidth);
@@ -401,20 +422,15 @@
 			Math.ceil(renderedWidth * dpr)
 		);
 		var candidateWidths = getCandidateWidths(image, renderedWidth);
-		var requestedBucketWidth = bucketWidth(
-			targetWidth,
-			bucketWidths,
-			Math.min(maximumWidth, targetMaximumWidth || maximumWidth)
-		);
-		var useCriticalCoverage = isHighPriorityImage(image)
-			&& isTargetCovered(targetWidth, [requestedBucketWidth], 11, 10);
+		var useCriticalCoverage = bucketProtocolVersion >= 3 && isHighPriorityImage(image);
 		var coverageMaximumNumerator = useCriticalCoverage ? 11 : 6;
 		var coverageMaximumDenominator = useCriticalCoverage ? 10 : 5;
 		var nativeWidth = coveringCandidateWidth(
 			targetWidth,
 			candidateWidths,
 			coverageMaximumNumerator,
-			coverageMaximumDenominator
+			coverageMaximumDenominator,
+			useCriticalCoverage
 		);
 		var learnsLayout = 'asset' === targetKind || 'attachment' === targetKind;
 		var selectedWidth = learnsLayout
@@ -451,7 +467,8 @@
 				targetWidth,
 				candidateWidths,
 				coverageMaximumNumerator,
-				coverageMaximumDenominator
+				coverageMaximumDenominator,
+				useCriticalCoverage
 			)
 			|| !requiredFormatsCovered
 			|| (
@@ -460,7 +477,8 @@
 					targetWidth,
 					[selectedWidth],
 					coverageMaximumNumerator,
-					coverageMaximumDenominator
+					coverageMaximumDenominator,
+					useCriticalCoverage
 				)
 			)
 		) {
@@ -470,7 +488,8 @@
 				targetMaximumWidth,
 				nativeWidth,
 				learnsLayout ? Number(window.innerWidth || 0) : 0,
-				learnsLayout ? renderedWidth : 0
+				learnsLayout ? renderedWidth : 0,
+			useCriticalCoverage
 			);
 		}
 	}

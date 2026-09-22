@@ -9,7 +9,7 @@ const vm = require('node:vm');
 const REQUIRED_FORMATS_ATTRIBUTE = 'data-empirical-responsive-images-required-formats';
 const MAXIMUM_WIDTH_ATTRIBUTE = 'data-empirical-responsive-images-maximum-width';
 const TARGET_KIND_ATTRIBUTE = 'data-empirical-responsive-images-target-kind';
-const BUCKET_PROTOCOL_VERSION = 2;
+const BUCKET_PROTOCOL_VERSION = 3;
 const CANONICAL_WIDTHS = [
 	1, 2, 3, 4, 6, 8, 10, 13, 16, 20, 25, 31, 38,
 	46, 56, 69, 85, 104, 128, 157, 193, 236, 289, 354,
@@ -469,30 +469,59 @@ test('covered page performs no visitor request', () => {
 	assert.equal(requests.length, 0);
 });
 
-test('high-priority image reports a closer viable width', () => {
-	const requests = runDetector('image-600.webp 600w, image-768.webp 768w', 378, {
+test('high-priority image learns a selectable width above its physical target', () => {
+	const requests = runDetector('image-600.webp 600w, image-650.webp 650w, image-768.webp 768w', 378, {
 		currentSrc: 'https://example.test/uploads/image-768.webp',
 		devicePixelRatio: 1.75,
 		fetchPriority: 'high',
+		targetKind: 'attachment-fixed-sizes',
 		requiredFormats: []
 	});
 
 	assert.equal(requests.length, 1);
 	assert.deepEqual(JSON.parse(requests[0].options.body), {
-		gaps: [
-			{ target: 'signed-target', width: 650 }
-		]
+		gaps: [{ target: 'signed-target', width: 672, critical: true }]
 	});
 });
 
-test('high-priority image keeps normal tolerance when palette cannot improve it', () => {
+test('critical image converges after the upward-rounded candidate exists', () => {
+	const requests = runDetector('image-650.webp 650w, image-672.webp 672w, image-768.webp 768w', 378, {
+		currentSrc: 'https://example.test/uploads/image-672.webp',
+		devicePixelRatio: 1.75,
+		fetchPriority: 'high',
+		targetKind: 'attachment-fixed-sizes',
+		requiredFormats: []
+	});
+
+	assert.equal(requests.length, 0);
+});
+
+test('high-priority image improves gaps the old sparse palette could not cover', () => {
 	const requests = runDetector('image-796.webp 796w', 700, {
 		currentSrc: 'https://example.test/uploads/image-796.webp',
 		fetchPriority: 'high',
 		requiredFormats: []
 	});
 
-	assert.equal(requests.length, 0);
+	assert.deepEqual(JSON.parse(requests[0].options.body), {
+		gaps: [{ target: 'signed-target', width: 704, critical: true }]
+	});
+});
+
+test('critical width ladder is upward, idempotent, bounded and source-capped', () => {
+	const helpers = loadHelpers();
+	const widths = new Set();
+	for (let target = 1; target <= 5120; ++target) {
+		const width = helpers.criticalWidth(target, 5120);
+		assert.ok(width >= target);
+		assert.ok(width * 16 <= target * 17);
+		assert.equal(helpers.criticalWidth(width, 5120), width);
+		assert.equal(helpers.criticalWidth(target, target), target);
+		widths.add(width);
+	}
+	assert.ok(widths.size <= 160);
+	assert.equal(helpers.criticalWidth(662, 1000), 672);
+	assert.equal(helpers.criticalWidth(662, 665), 665);
 });
 
 test('initial navigation collects gaps without starting a request', () => {

@@ -2,9 +2,9 @@
 Contributors: jesusinica
 Tags: responsive images, image optimization, image sizes, webp, avif
 Requires at least: 6.9
-Tested up to: 7.0
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.3.8
+Stable tag: 0.3.9
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -149,6 +149,13 @@ No. Only marked local images and a fixed list of sizes are accepted. Near matche
 Most standard WordPress hosts should work if uploads are writable, WordPress background tasks run normally, and the server can create the requested image format. If background tasks are disabled, queued work waits until the host runs them.
 
 == Changelog ==
+
+= 0.3.9 =
+* Synchronize matching responsive image preloads, including WP Rocket hints, with current priority-image candidates. Preserve art-directed, format-specific and ambiguous hints.
+* Preserve authored responsive sizes when upstream filters produce duplicate image attributes, avoiding competing oversized downloads.
+* Delay upgrade cache purges until WordPress has loaded cache-plugin dependencies, preventing first-request failures with WP Rocket.
+* Fix high-priority image learning that could generate a slightly undersized candidate the browser skips. New targets round upward, with existing queue and storage limits preserved.
+* Keep cached version-2 image reports compatible during updates.
 
 = 0.3.8 =
 * Improve LCP image learning with static WebP support, tighter viable sizing for high-priority images, exact-width generation, and WP Rocket observer compatibility.

@@ -28,6 +28,52 @@ $fail = static function ( string $message ): void {
 	exit( 1 );
 };
 
+// Multiline block output can acquire duplicate responsive attributes in core filters.
+$duplicate_renderer = new Renderer( new Settings(), new Observation_Store(), new Asset_Manager( new Settings() ) );
+$duplicate_markup   = '<img class="eri-review-responsive-fixture" src="https://example.invalid/image.webp" srcset="https://example.invalid/672.webp 672w" sizes="92vw" width="672" height="672" SRCSET="https://example.invalid/768.webp 768w" SIZES="100vw" width="768" height="768">';
+$normalized_markup  = $duplicate_renderer->filter_final_html( $duplicate_markup, true );
+$normalized_image   = new WP_HTML_Tag_Processor( $normalized_markup );
+$normalized_image->next_tag( 'IMG' );
+foreach ( array(
+	'srcset' => 'https://example.invalid/672.webp 672w',
+	'sizes'  => '92vw',
+	'width'  => '672',
+	'height' => '672',
+) as $attribute => $expected ) {
+	if ( $expected !== $normalized_image->get_attribute( $attribute ) || 1 !== preg_match_all( '/\s' . $attribute . '=/i', $normalized_markup ) ) {
+		$fail( 'responsive attribute normalization did not preserve the browser-first value: ' . $attribute );
+	}
+}
+$repeated_markup = $duplicate_renderer->filter_final_html( $normalized_markup, true );
+$repeated_image  = new WP_HTML_Tag_Processor( $repeated_markup );
+$repeated_image->next_tag( 'IMG' );
+foreach ( array( 'srcset', 'sizes', 'width', 'height' ) as $attribute ) {
+	if ( $normalized_image->get_attribute( $attribute ) !== $repeated_image->get_attribute( $attribute ) || 1 !== preg_match_all( '/\s' . $attribute . '=/i', $repeated_markup ) ) {
+		$fail( 'repeated rendering changed responsive attribute semantics: ' . $attribute );
+	}
+}
+
+$preload_image   = '<img class="eri-review-preload-fixture" fetchpriority="high" src="https://example.invalid/image.webp" srcset="https://example.invalid/672.webp 672w, https://example.invalid/768.webp 768w" sizes="92vw">';
+$stale_preload   = '<link rel="preload" as="image" href="https://example.invalid/image.webp" imagesrcset="https://example.invalid/768.webp 768w" imagesizes="92vw">';
+$updated_preload = $duplicate_renderer->filter_image_preloads( '<!DOCTYPE html><html><head>' . $stale_preload . '</head><body>' . $preload_image . '</body></html>' );
+$preload_tag     = new WP_HTML_Tag_Processor( $updated_preload );
+$preload_tag->next_tag( 'LINK' );
+if ( false === strpos( (string) $preload_tag->get_attribute( 'imagesrcset' ), '672w' ) ) {
+	$fail( 'stale responsive preload did not include the learned candidate' );
+}
+foreach ( array( ' media="(min-width: 1000px)"', ' type="image/avif"', ' crossorigin="anonymous"' ) as $excluded_attribute ) {
+	$excluded_preload = str_replace( '<link ', '<link' . $excluded_attribute . ' ', $stale_preload );
+	if ( $excluded_preload . $preload_image !== $duplicate_renderer->filter_image_preloads( $excluded_preload . $preload_image ) ) {
+		$fail( 'preload synchronization changed an excluded art-direction/format/credentials hint' );
+	}
+}
+$conflicting_image = str_replace( 'sizes="92vw"', 'sizes="50vw"', $preload_image );
+foreach ( array( '<picture>' . $preload_image . '</picture>', $preload_image . $conflicting_image, str_replace( 'sizes="92vw"', 'sizes="100vw"', $preload_image ) ) as $excluded_image ) {
+	if ( $stale_preload . $excluded_image !== $duplicate_renderer->filter_image_preloads( $stale_preload . $excluded_image ) ) {
+		$fail( 'preload synchronization changed an ambiguous or mismatched layout hint' );
+	}
+}
+
 $route_path = '/empirical-responsive-images/v1/observations';
 $routes     = rest_get_server()->get_routes();
 $endpoints  = $routes[ $route_path ] ?? array();
@@ -633,6 +679,27 @@ if ( false === strpos( $script_tag, 'data-empirical-responsive-images-nonce=' ) 
 if ( false === strpos( $script_tag, 'data-nowprocket="1"' ) ) {
 	$fail( 'diagnostic observer was not excluded from WP Rocket delay' );
 }
+
+// Exercise the critical-width protocol through REST and the real background worker.
+$critical_request                       = $new_gap_request( 672 );
+$critical_params                        = $critical_request->get_json_params();
+$critical_params['gaps'][0]['critical'] = true;
+$critical_request->set_body( wp_json_encode( $critical_params ) );
+wp_set_current_user( $administrator->ID );
+$critical_request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
+$critical_response = rest_do_request( $critical_request );
+$critical_result   = $critical_response->get_data();
+if ( 200 !== $critical_response->get_status() || 1 !== (int) ( $critical_result['queued'] ?? 0 ) ) {
+	$fail( 'critical-width REST report did not queue the requested work' );
+}
+do_action( Background_Optimizer::BATCH_HOOK );
+$critical_metadata = wp_get_attachment_metadata( $attachment_id );
+$critical_size     = $critical_metadata['sizes'][ Image_Sizes::name_for_width( 672 ) ] ?? array();
+$critical_srcset   = wp_get_attachment_image_srcset( $attachment_id, 'full' );
+if ( 672 !== (int) ( $critical_size['width'] ?? 0 ) || ! is_string( $critical_srcset ) || false === strpos( $critical_srcset, ' 672w' ) ) {
+	$fail( 'critical-width background job did not produce a selectable 672px image' );
+}
+echo "Critical-width REST, background generation and responsive delivery passed.\n";
 
 $gap_purge_count = 0;
 wp_set_current_user( $administrator->ID );
