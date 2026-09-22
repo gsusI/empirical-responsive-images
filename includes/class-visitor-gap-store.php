@@ -19,7 +19,7 @@ final class Visitor_Gap_Store {
 	public const WRITE_LOCK_OPTION       = 'empirical_responsive_images_visitor_gap_hints_lock';
 	public const MAX_GAPS_PER_REPORT     = 12;
 	public const MAX_WIDTHS_PER_REPORT   = self::MAX_GAPS_PER_REPORT;
-	public const BUCKET_PROTOCOL_VERSION = 2;
+	public const BUCKET_PROTOCOL_VERSION = 3;
 
 	private const DATA_VERSION                   = 5;
 	private const WRITE_LOCK_TTL_SECONDS         = 5;
@@ -190,6 +190,27 @@ final class Visitor_Gap_Store {
 		}
 
 		return $maximum;
+	}
+
+	/**
+	 * Round a critical image target upward on a finite physical-width ladder.
+	 *
+	 * Steps stay at most 1/16 of the target, without increasing per-target caps.
+	 *
+	 * @param int $target_width Physical target width.
+	 * @param int $maximum      Attainable source width.
+	 * @return int
+	 */
+	public static function critical_width( int $target_width, int $maximum = 5120 ): int {
+		$maximum = max( 1, min( 5120, $maximum ) );
+		$target  = min( $maximum, max( 1, $target_width ) );
+		$step    = 1;
+
+		while ( $step * 32 < $target ) {
+			$step *= 2;
+		}
+
+		return min( $maximum, (int) ( ceil( $target / $step ) * $step ) );
 	}
 
 	/**
@@ -937,7 +958,9 @@ final class Visitor_Gap_Store {
 		}
 
 		$reported_width      = min( $maximum, max( 1, (int) ceil( $raw_width ) ) );
-		$is_current_protocol = self::BUCKET_PROTOCOL_VERSION === absint( $gap['_bucket_protocol_version'] ?? 0 );
+		$protocol_version    = absint( $gap['_bucket_protocol_version'] ?? 0 );
+		$is_current_protocol = in_array( $protocol_version, array( 2, self::BUCKET_PROTOCOL_VERSION ), true );
+		$is_critical         = self::BUCKET_PROTOCOL_VERSION === $protocol_version && true === ( $gap['critical'] ?? false );
 		$hinted_native_width = $is_current_protocol ? absint( $gap['native_width'] ?? 0 ) : 0;
 		$native_width        = $is_current_protocol
 			? (
@@ -950,7 +973,7 @@ final class Visitor_Gap_Store {
 			: Visitor_Gap_Target::covering_width( $target, $reported_width, $this->get_asset_manager(), $maximum );
 		$requested_width     = $native_width > 0
 			? $reported_width
-			: self::canonical_width( $reported_width, $maximum );
+			: ( $is_critical ? self::critical_width( $reported_width, $maximum ) : self::canonical_width( $reported_width, $maximum ) );
 
 		$work_width = $native_width > 0 ? $native_width : $requested_width;
 		$job_id     = $this->job_id( $target_token, $work_width );

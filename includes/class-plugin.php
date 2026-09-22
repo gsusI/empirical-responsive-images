@@ -167,6 +167,8 @@ final class Plugin {
 		add_filter( 'the_content', array( $renderer, 'filter_content_fragment' ), 99 );
 		add_filter( 'wp_get_attachment_image_attributes', array( $this->image_sizes, 'filter_attachment_attributes' ), 20, 3 );
 		add_filter( 'wp_template_enhancement_output_buffer', array( $renderer, 'filter_final_html' ) );
+		// WP Rocket inserts its stored image preloads after template enhancement.
+		add_filter( 'rocket_buffer', array( $renderer, 'filter_image_preloads' ), PHP_INT_MAX );
 
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			\WP_CLI::add_command( 'empirical-responsive-images', CLI_Command::class );
@@ -255,8 +257,22 @@ final class Plugin {
 		$this->maybe_upgrade_min_rendered_width_default( $stored_version );
 		$this->observation_store->invalidate_cache_readiness( 'plugin_upgraded' );
 
-		update_option( self::VERSION_OPTION, EMPIRICAL_RESPONSIVE_IMAGES_VERSION, false );
+		// Cache plugins may expose purge functions before their dependencies are loaded.
+		add_action( 'wp_loaded', array( $this, 'finish_version_upgrade' ), 20 );
+	}
+
+	/**
+	 * Purge upgrade caches after plugins and the theme have finished loading.
+	 *
+	 * @return void
+	 */
+	public function finish_version_upgrade(): void {
+		if ( EMPIRICAL_RESPONSIVE_IMAGES_VERSION === (string) get_option( self::VERSION_OPTION, '' ) ) {
+			return;
+		}
+
 		Cache_Compat::purge_all();
+		update_option( self::VERSION_OPTION, EMPIRICAL_RESPONSIVE_IMAGES_VERSION, false );
 	}
 
 	/**
