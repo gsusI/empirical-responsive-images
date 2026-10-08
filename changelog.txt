@@ -1,3 +1,7 @@
+= 0.3.10 - 2026-10-08 =
+* Fixed - Galleries, sliders and variation scripts that change the src or srcset of a wrapped image no longer keep showing the original photo. A small inline footer script parks the picture's WebP/AVIF source srcsets while another image is shown and restores them when the original returns. Lazy-loading placeholders, foreign pictures and unmarked images are left untouched.
+* Compatibility - The inline script is excluded from WP Rocket delayed JavaScript, Cloudflare Rocket Loader and common minifiers so it runs before visitors interact with galleries.
+
 = 0.3.9 - 2026-09-22 =
 * Synchronize matching responsive image preloads, including WP Rocket hints, with current priority-image candidates. Preserve art-directed, format-specific and ambiguous hints.
 * Preserve authored responsive sizes when upstream filters produce duplicate image attributes, avoiding competing oversized downloads.

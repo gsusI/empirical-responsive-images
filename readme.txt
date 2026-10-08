@@ -4,7 +4,7 @@ Tags: responsive images, image optimization, image sizes, webp, avif
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.3.9
+Stable tag: 0.3.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -120,7 +120,7 @@ It can still learn WordPress images when a CDN changes their public URLs. If a s
 
 = Does it work with lazy loading and page builders? =
 
-Usually, when they produce normal WordPress image elements. The plugin rechecks lazy images after they load and watches images added after the page opens.
+Usually, when they produce normal WordPress image elements. The plugin rechecks lazy images after they load and watches images added after the page opens. When a gallery or slider swaps a wrapped image, its WebP/AVIF sources step aside so the new image shows.
 
 CSS background images, drawing canvases, remote images, and heavily customized JavaScript galleries may not be eligible.
 
@@ -149,6 +149,9 @@ No. Only marked local images and a fixed list of sizes are accepted. Near matche
 Most standard WordPress hosts should work if uploads are writable, WordPress background tasks run normally, and the server can create the requested image format. If background tasks are disabled, queued work waits until the host runs them.
 
 == Changelog ==
+
+= 0.3.10 =
+* Fix galleries, sliders and product variation swaps that kept showing the original photo when the plugin had wrapped the image in a picture element. The WebP/AVIF sources now step aside while a script shows another image and return when the original comes back.
 
 = 0.3.9 =
 * Synchronize matching responsive image preloads, including WP Rocket hints, with current priority-image candidates. Preserve art-directed, format-specific and ambiguous hints.
