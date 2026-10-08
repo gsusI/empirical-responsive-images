@@ -12,12 +12,15 @@ define( 'WP_CONTENT_DIR', dirname( __DIR__ ) );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_URL', 'https://example.test/wp-content/plugins/empirical-responsive-images/' );
 define( 'EMPIRICAL_RESPONSIVE_IMAGES_VERSION', 'test' );
+define( 'EMPIRICAL_RESPONSIVE_IMAGES_DIR', dirname( __DIR__ ) . '/' );
 
 $GLOBALS['eri_test_options']                     = array();
 $GLOBALS['eri_test_current_user_can_manage']     = false;
 $GLOBALS['eri_test_current_user_can_edit_posts'] = false;
 $GLOBALS['eri_test_enqueued_scripts']            = array();
 $GLOBALS['eri_test_localized_scripts']           = array();
+$GLOBALS['eri_test_registered_scripts']          = array();
+$GLOBALS['eri_test_inline_scripts']              = array();
 $GLOBALS['eri_test_registered_routes']           = array();
 $GLOBALS['eri_test_actions']                     = array();
 $GLOBALS['eri_test_filters']                     = array();
@@ -42,6 +45,8 @@ function eri_test_reset_state(): void {
 	$GLOBALS['eri_test_current_user_can_edit_posts'] = false;
 	$GLOBALS['eri_test_enqueued_scripts']            = array();
 	$GLOBALS['eri_test_localized_scripts']           = array();
+	$GLOBALS['eri_test_registered_scripts']          = array();
+	$GLOBALS['eri_test_inline_scripts']              = array();
 	$GLOBALS['eri_test_registered_routes']           = array();
 	$GLOBALS['eri_test_actions']                     = array();
 	$GLOBALS['eri_test_filters']                     = array();
@@ -276,7 +281,19 @@ function is_feed(): bool {
 	return false;
 }
 
-function wp_enqueue_script( string $handle, string $src, array $dependencies = array(), $version = false, $args = array() ): void {
+function wp_register_script( string $handle, $src, array $dependencies = array(), $version = false, $args = array() ): bool {
+	$GLOBALS['eri_test_registered_scripts'][ $handle ] = compact( 'src', 'dependencies', 'version', 'args' );
+
+	return true;
+}
+
+function wp_add_inline_script( string $handle, string $data, string $position = 'after' ): bool {
+	$GLOBALS['eri_test_inline_scripts'][ $handle ][ $position ][] = $data;
+
+	return true;
+}
+
+function wp_enqueue_script( string $handle, string $src = '', array $dependencies = array(), $version = false, $args = array() ): void {
 	$GLOBALS['eri_test_enqueued_scripts'][ $handle ] = compact( 'src', 'dependencies', 'version', 'args' );
 }
 
@@ -508,6 +525,7 @@ require_once dirname( __DIR__ ) . '/includes/class-visitor-gap-target.php';
 require_once dirname( __DIR__ ) . '/includes/class-visitor-gap-store.php';
 require_once dirname( __DIR__ ) . '/includes/class-format-generator.php';
 require_once dirname( __DIR__ ) . '/includes/class-image-sizes.php';
+require_once dirname( __DIR__ ) . '/includes/class-renderer.php';
 require_once dirname( __DIR__ ) . '/includes/class-cache-compat.php';
 require_once dirname( __DIR__ ) . '/includes/class-regenerator.php';
 require_once dirname( __DIR__ ) . '/includes/class-background-optimizer.php';

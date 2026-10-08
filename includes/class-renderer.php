@@ -16,6 +16,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 final class Renderer {
 	/**
+	 * Script handle for the picture source sync inline script.
+	 */
+	public const PICTURE_SOURCE_SYNC_HANDLE = 'empirical-responsive-images-picture-source-sync';
+
+	/**
 	 * Settings.
 	 *
 	 * @var Settings
@@ -57,6 +62,61 @@ final class Renderer {
 		$this->asset_manager    = $asset_manager;
 		$this->format_generator = $format_generator ?? new Format_Generator( $settings );
 	}
+
+	/**
+	 * Inline the script that keeps plugin picture sources in step with swapped images.
+	 *
+	 * Galleries, sliders and variation scripts often change the src of an image the
+	 * plugin wrapped. Without this, the picture sources keep showing the old image.
+	 *
+	 * @return void
+	 */
+	public function enqueue_picture_source_sync(): void {
+		if ( is_admin() || is_feed() || ! $this->settings->is_picture_enabled() ) {
+			return;
+		}
+
+		$path = EMPIRICAL_RESPONSIVE_IMAGES_DIR . 'assets/js/picture-source-sync.js';
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Reads the plugin's own bundled script, not a URL.
+		$script = is_readable( $path ) ? file_get_contents( $path ) : false;
+
+		if ( ! is_string( $script ) || '' === trim( $script ) ) {
+			return;
+		}
+
+		wp_register_script( self::PICTURE_SOURCE_SYNC_HANDLE, false, array(), EMPIRICAL_RESPONSIVE_IMAGES_VERSION, array( 'in_footer' => true ) );
+		wp_enqueue_script( self::PICTURE_SOURCE_SYNC_HANDLE );
+		wp_add_inline_script( self::PICTURE_SOURCE_SYNC_HANDLE, trim( $script ) );
+	}
+
+	// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WordPress filter signature requires $javascript.
+	/**
+	 * Keep the picture sync script out of delayed and combined JavaScript.
+	 *
+	 * It must run before visitors interact with galleries that swap images.
+	 *
+	 * @param array  $attributes Inline script attributes.
+	 * @param string $javascript Inline script contents.
+	 * @return array
+	 */
+	public function filter_picture_source_sync_attributes( array $attributes, string $javascript ): array {
+		if ( self::PICTURE_SOURCE_SYNC_HANDLE . '-js-after' !== ( $attributes['id'] ?? '' ) ) {
+			return $attributes;
+		}
+
+		return array_merge(
+			$attributes,
+			array(
+				'data-cfasync'            => 'false',
+				'data-nowprocket'         => '1',
+				'data-no-defer'           => '1',
+				'data-no-minify'          => '1',
+				'data-no-optimize'        => '1',
+				'data-pagespeed-no-defer' => '1',
+			)
+		);
+	}
+	// phpcs:enable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed
 
 	// phpcs:disable Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WordPress filter signature requires $attr.
 	/**

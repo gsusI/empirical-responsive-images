@@ -15,6 +15,10 @@ namespace {
 		define( 'EMPIRICAL_RESPONSIVE_IMAGES_URL', 'https://example.test/wp-content/plugins/empirical-responsive-images/' );
 	}
 
+	if ( ! defined( 'EMPIRICAL_RESPONSIVE_IMAGES_DIR' ) ) {
+		define( 'EMPIRICAL_RESPONSIVE_IMAGES_DIR', dirname( __DIR__ ) . '/' );
+	}
+
 	if ( ! class_exists( 'WP_CLI' ) ) {
 		class WP_CLI {
 			/**

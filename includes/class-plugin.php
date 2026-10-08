@@ -151,6 +151,8 @@ final class Plugin {
 		add_action( 'after_setup_theme', array( $this->image_sizes, 'register_observed_image_sizes' ), 20 );
 		add_action( 'wp_enqueue_scripts', array( $this->image_sizes, 'enqueue_observer' ) );
 		add_filter( 'script_loader_tag', array( $this->image_sizes, 'filter_observer_script_tag' ), 10, 3 );
+		add_action( 'wp_enqueue_scripts', array( $renderer, 'enqueue_picture_source_sync' ) );
+		add_filter( 'wp_inline_script_attributes', array( $renderer, 'filter_picture_source_sync_attributes' ), 10, 2 );
 		add_action( 'admin_init', array( $this->settings, 'register' ) );
 		add_action( 'admin_menu', array( $admin_page, 'register_menu' ) );
 		add_action( 'admin_enqueue_scripts', array( $admin_page, 'enqueue_assets' ) );
