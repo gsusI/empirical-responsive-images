@@ -1,3 +1,6 @@
+= 0.3.11 - 2026-10-19 =
+* Fixed - Background image work no longer clears every cached page. Once sizes are generated, only the published parent post and featured-image posts of each image are purged (up to 100 pages per run, filterable with empirical_responsive_images_background_purge_urls); other pages pick up the new sizes when their cache expires. Long queues previously cleared the whole site, CDN included, every night as the daily limit reset at midnight UTC. Visitor reports still carry no page URLs.
+
 = 0.3.10 - 2026-10-08 =
 * Fixed - Galleries, sliders and variation scripts that change the src or srcset of a wrapped image no longer keep showing the original photo. A small inline footer script parks the picture's WebP/AVIF source srcsets while another image is shown and restores them when the original returns. Lazy-loading placeholders, foreign pictures and unmarked images are left untouched.
 * Compatibility - The inline script is excluded from WP Rocket delayed JavaScript, Cloudflare Rocket Loader and common minifiers so it runs before visitors interact with galleries.
