@@ -148,13 +148,23 @@ final class BackgroundOptimizerTest extends TestCase {
 		self::assertSame( array(), $data['jobs'] );
 		self::assertSame( array( 796 ), $ledger['widths'] );
 		self::assertFalse( $data['cache']['dirty'] );
-		self::assertSame( 1, $GLOBALS['eri_test_siteground_purge_all'] );
+		self::assertSame( 0, $GLOBALS['eri_test_siteground_purge_all'] );
+		self::assertSame( array(), $GLOBALS['eri_test_siteground_purge_urls'] );
 	}
 
 	public function test_run_drains_multiple_qualified_targets_within_runtime_budget(): void {
 		list( $optimizer, $store, $first_target ) = $this->services();
 		$second_target                            = $this->add_attachment( 304 );
 		$third_target                             = $this->add_attachment( 305 );
+
+		$GLOBALS['eri_test_posts'] = array(
+			303 => array( 'type' => 'attachment', 'status' => 'inherit', 'parent' => 10 ),
+			304 => array( 'type' => 'attachment', 'status' => 'inherit', 'parent' => 11 ),
+			10  => array( 'type' => 'product', 'status' => 'publish' ),
+			11  => array( 'type' => 'product', 'status' => 'draft' ),
+			12  => array( 'type' => 'post', 'status' => 'publish', 'thumbnail_id' => 305 ),
+			13  => array( 'type' => 'product', 'status' => 'publish', 'thumbnail_id' => 303 ),
+		);
 
 		foreach ( array( $first_target, $second_target, $third_target ) as $target ) {
 			$store->record_gaps( array( $this->gap( $target, 704 ) ), new Settings(), true );
@@ -171,7 +181,12 @@ final class BackgroundOptimizerTest extends TestCase {
 		self::assertSame( array(), $data['jobs'] );
 		self::assertCount( 3, $data['targets'] );
 		self::assertSame( 3, $data['daily']['processed'] );
-		self::assertSame( 1, $GLOBALS['eri_test_siteground_purge_all'] );
+		self::assertSame( 0, $GLOBALS['eri_test_siteground_purge_all'] );
+		// Parent and featured-image pages only; drafts and the attachment pages are skipped.
+		$purged = $GLOBALS['eri_test_siteground_purge_urls'];
+		sort( $purged );
+		self::assertSame( array( 'https://example.test/?p=10', 'https://example.test/?p=12', 'https://example.test/?p=13' ), $purged );
+		self::assertSame( array(), $data['cache']['urls'] );
 	}
 
 	public function test_run_stops_before_claiming_another_job_after_runtime_budget(): void {

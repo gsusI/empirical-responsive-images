@@ -41,6 +41,7 @@ final class Visitor_Gap_Store {
 	private const MAX_GENERATIONS_PER_DAY        = 50;
 	private const MAX_ATTEMPTS                   = 3;
 	private const CACHE_PURGE_INTERVAL           = 900;
+	private const MAX_PENDING_PURGE_URLS         = 100;
 	private const TRUSTED_CONFIRMATIONS_REQUIRED = 1;
 
 	/**
@@ -239,6 +240,7 @@ final class Visitor_Gap_Store {
 				'dirty'         => false,
 				'generation'    => 0,
 				'last_purge_at' => 0,
+				'urls'          => array(),
 			),
 		);
 	}
@@ -270,6 +272,7 @@ final class Visitor_Gap_Store {
 		);
 		$data['daily']          = wp_parse_args( $data['daily'], $this->empty_data()['daily'] );
 		$data['cache']          = wp_parse_args( $data['cache'], $this->empty_data()['cache'] );
+		$data['cache']['urls']  = self::merge_page_urls( $data['cache']['urls'], array(), self::MAX_PENDING_PURGE_URLS );
 		$data['targets']        = $this->trim_completed_targets( $data['targets'] );
 		$data['queue_sequence'] = absint( $data['queue_sequence'] ?? 0 );
 
@@ -644,9 +647,10 @@ final class Visitor_Gap_Store {
 	 * @param string $lease_token Current claim lease token.
 	 * @param bool   $success     Whether target generation succeeded.
 	 * @param string $error       Bounded error description.
+	 * @param array  $purge_urls  Pages showing the target, purged with the next debounced cache purge.
 	 * @return array
 	 */
-	public function complete_job( string $job_id, string $lease_token, bool $success, string $error = '' ): array {
+	public function complete_job( string $job_id, string $lease_token, bool $success, string $error = '', array $purge_urls = array() ): array {
 		if ( ! $this->acquire_write_lock() ) {
 			return array(
 				'updated' => false,
@@ -693,6 +697,7 @@ final class Visitor_Gap_Store {
 				$data['targets'][ $target_key ] = $target;
 				$data['cache']['dirty']         = true;
 				$data['cache']['generation']    = min( PHP_INT_MAX, absint( $data['cache']['generation'] ?? 0 ) + 1 );
+				$data['cache']['urls']          = self::merge_page_urls( $data['cache']['urls'], $purge_urls, self::MAX_PENDING_PURGE_URLS );
 				$data['targets']                = $this->trim_completed_targets( $data['targets'] );
 				unset( $data['jobs'][ $job_id ] );
 			} else {
@@ -889,6 +894,15 @@ final class Visitor_Gap_Store {
 	}
 
 	/**
+	 * Get pages whose cached markup predates completed work.
+	 *
+	 * @return string[]
+	 */
+	public function get_cache_purge_urls(): array {
+		return $this->get_data()['cache']['urls'];
+	}
+
+	/**
 	 * Mark one completed, debounced cache purge if its generation is current.
 	 *
 	 * @param int $expected_generation Generation that was purged.
@@ -908,6 +922,7 @@ final class Visitor_Gap_Store {
 
 			$data['cache']['dirty']         = false;
 			$data['cache']['last_purge_at'] = time();
+			$data['cache']['urls']          = array();
 			$data['updated_at']             = time();
 
 			return $this->persist_locked_data( $data );
@@ -1499,6 +1514,28 @@ final class Visitor_Gap_Store {
 		$data['jobs'] = $this->trim_failed_jobs( $data['jobs'] );
 
 		return $data;
+	}
+
+	/**
+	 * Merge page URLs into a bounded, de-duplicated list.
+	 *
+	 * @param mixed $urls  Stored URLs.
+	 * @param mixed $added URLs to append.
+	 * @param int   $limit Maximum kept URLs; earlier entries win.
+	 * @return string[]
+	 */
+	private static function merge_page_urls( $urls, $added, int $limit ): array {
+		$merged = array();
+
+		foreach ( array_merge( is_array( $urls ) ? $urls : array(), is_array( $added ) ? $added : array() ) as $url ) {
+			$url = is_string( $url ) && strlen( $url ) <= 2048 ? esc_url_raw( $url, array( 'http', 'https' ) ) : '';
+
+			if ( '' !== $url ) {
+				$merged[ $url ] = true;
+			}
+		}
+
+		return array_slice( array_keys( $merged ), 0, $limit );
 	}
 
 	/**

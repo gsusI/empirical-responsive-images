@@ -4,7 +4,7 @@ Tags: responsive images, image optimization, image sizes, webp, avif
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.3.10
+Stable tag: 0.3.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -149,6 +149,9 @@ No. Only marked local images and a fixed list of sizes are accepted. Near matche
 Most standard WordPress hosts should work if uploads are writable, WordPress background tasks run normally, and the server can create the requested image format. If background tasks are disabled, queued work waits until the host runs them.
 
 == Changelog ==
+
+= 0.3.11 =
+* Fix a full-site cache clear after background image work. Once new image sizes are ready, only the published post each image belongs to and posts using it as their featured image are refreshed; other pages pick up the new sizes when their cache expires. Sites with a long queue were cleared every night as the daily limit reset at midnight UTC.
 
 = 0.3.10 =
 * Fix galleries, sliders and product variation swaps that kept showing the original photo when the plugin had wrapped the image in a picture element. The WebP/AVIF sources now step aside while a script shows another image and return when the original comes back.

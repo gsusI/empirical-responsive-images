@@ -418,8 +418,80 @@ final class Background_Optimizer {
 			$job_id,
 			$lease,
 			! empty( $result['success'] ),
-			sanitize_key( (string) ( $result['error'] ?? '' ) )
+			sanitize_key( (string) ( $result['error'] ?? '' ) ),
+			! empty( $result['success'] ) ? $this->target_page_urls( $target ) : array()
 		);
+	}
+
+	/**
+	 * Find the published pages known to show an attachment target.
+	 *
+	 * Covers the post the image was uploaded to and posts using it as their
+	 * featured image. Archives and other listings pick up new widths when their
+	 * cache expires. Visitor reports never carry page URLs.
+	 *
+	 * @param array $target Resolved target.
+	 * @return string[]
+	 */
+	private function target_page_urls( array $target ): array {
+		$attachment_id = 'attachment' === (string) ( $target['type'] ?? '' ) ? absint( $target['attachment_id'] ?? 0 ) : 0;
+		$urls          = array();
+
+		try {
+			$urls = $attachment_id > 0 ? $this->attachment_page_urls( $attachment_id ) : array();
+		} catch ( \Throwable $error ) {
+			$urls = array();
+		}
+
+		/**
+		 * Filter the pages purged after background work generates sizes for a target.
+		 *
+		 * @param string[] $urls   Page URLs.
+		 * @param array    $target Resolved target.
+		 */
+		$urls = apply_filters( 'empirical_responsive_images_background_purge_urls', $urls, $target );
+
+		return is_array( $urls ) ? array_values( array_filter( $urls, 'is_string' ) ) : array();
+	}
+
+	/**
+	 * Published permalinks of an attachment's parent post and featured-image users.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @return string[]
+	 */
+	private function attachment_page_urls( int $attachment_id ): array {
+		$urls     = array();
+		$post_ids = get_posts(
+			array(
+				'post_type'        => 'any',
+				'post_status'      => 'publish',
+				'meta_key'         => '_thumbnail_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Bounded, indexed by meta_key.
+				'meta_value'       => (string) $attachment_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Bounded, indexed by meta_key.
+				'fields'           => 'ids',
+				'posts_per_page'   => 10,
+				'no_found_rows'    => true,
+				'suppress_filters' => true,
+			)
+		);
+
+		array_unshift( $post_ids, wp_get_post_parent_id( $attachment_id ) );
+
+		foreach ( array_unique( array_map( 'absint', $post_ids ) ) as $post_id ) {
+			$post_type = $post_id > 0 ? get_post_type( $post_id ) : false;
+
+			if ( false === $post_type || 'publish' !== get_post_status( $post_id ) || ! is_post_type_viewable( $post_type ) ) {
+				continue;
+			}
+
+			$url = get_permalink( $post_id );
+
+			if ( is_string( $url ) && '' !== $url ) {
+				$urls[] = $url;
+			}
+		}
+
+		return $urls;
 	}
 
 	/**
@@ -719,6 +791,10 @@ final class Background_Optimizer {
 	/**
 	 * Purge stale page markup only after the job store declares a completed run.
 	 *
+	 * Only the pages known to show the finished targets are purged. A full purge
+	 * here cleared whole sites, CDN included, each night the daily-capped queue
+	 * resumed. Other pages pick up the new widths when their cache expires.
+	 *
 	 * @return void
 	 */
 	private function maybe_purge_completed_work(): void {
@@ -729,7 +805,10 @@ final class Background_Optimizer {
 		$generation = $this->store->get_cache_generation();
 
 		try {
-			Cache_Compat::purge_all();
+			foreach ( $this->store->get_cache_purge_urls() as $url ) {
+				Cache_Compat::purge_url( $url );
+			}
+
 			$this->store->mark_cache_purged( $generation );
 		} catch ( \Throwable $error ) {
 			return;
@@ -743,12 +822,13 @@ final class Background_Optimizer {
 	 * @param string $lease_token Current claim lease token.
 	 * @param bool   $success     Whether processing succeeded.
 	 * @param string $error       Stable error key.
+	 * @param array  $purge_urls  Pages to purge once the run's work is done.
 	 * @return void
 	 */
-	private function complete_safely( string $job_id, string $lease_token, bool $success, string $error ): void {
+	private function complete_safely( string $job_id, string $lease_token, bool $success, string $error, array $purge_urls = array() ): void {
 		for ( $attempt = 0; $attempt < 120; ++$attempt ) {
 			try {
-				$result = $this->store->complete_job( $job_id, $lease_token, $success, $error );
+				$result = $this->store->complete_job( $job_id, $lease_token, $success, $error, $purge_urls );
 
 				if ( ! empty( $result['updated'] ) || ! empty( $result['stale'] ) ) {
 					return;

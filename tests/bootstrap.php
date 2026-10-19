@@ -34,6 +34,7 @@ $GLOBALS['eri_test_siteground_purge_urls']       = array();
 $GLOBALS['eri_test_siteground_purge_all']        = 0;
 $GLOBALS['eri_test_update_option_failures']      = array();
 $GLOBALS['eri_test_getimagesize_calls']          = array();
+$GLOBALS['eri_test_posts']                       = array();
 $GLOBALS['eri_test_uploads']                     = array(
 	'basedir' => __DIR__ . '/runtime/uploads',
 	'baseurl' => 'https://example.test/uploads',
@@ -60,6 +61,7 @@ function eri_test_reset_state(): void {
 	$GLOBALS['eri_test_siteground_purge_all']        = 0;
 	$GLOBALS['eri_test_update_option_failures']      = array();
 	$GLOBALS['eri_test_getimagesize_calls']          = array();
+	$GLOBALS['eri_test_posts']                       = array();
 	$GLOBALS['eri_test_uploads']                     = array(
 		'basedir' => __DIR__ . '/runtime/uploads',
 		'baseurl' => 'https://example.test/uploads',
@@ -400,6 +402,38 @@ function sg_cachepress_purge_cache( $url = false ): bool {
 	$GLOBALS['eri_test_siteground_purge_urls'][] = $url;
 
 	return true;
+}
+
+function get_posts( array $args ): array {
+	$ids = array();
+
+	foreach ( $GLOBALS['eri_test_posts'] as $post_id => $post ) {
+		if ( ( $args['post_status'] ?? 'publish' ) === ( $post['status'] ?? '' ) && (string) ( $post['thumbnail_id'] ?? '' ) === (string) ( $args['meta_value'] ?? '' ) ) {
+			$ids[] = $post_id;
+		}
+	}
+
+	return array_slice( $ids, 0, (int) ( $args['posts_per_page'] ?? 5 ) );
+}
+
+function wp_get_post_parent_id( $post ): int {
+	return (int) ( $GLOBALS['eri_test_posts'][ (int) $post ]['parent'] ?? 0 );
+}
+
+function get_post_type( $post ) {
+	return $GLOBALS['eri_test_posts'][ (int) $post ]['type'] ?? false;
+}
+
+function get_post_status( $post ) {
+	return $GLOBALS['eri_test_posts'][ (int) $post ]['status'] ?? false;
+}
+
+function is_post_type_viewable( $post_type ): bool {
+	return ! in_array( $post_type, array( 'attachment', 'wp_block' ), true );
+}
+
+function get_permalink( $post ) {
+	return 'https://example.test/?p=' . (int) $post;
 }
 
 function sg_cachepress_purge_everything(): bool {
