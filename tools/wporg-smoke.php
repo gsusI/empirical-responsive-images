@@ -227,13 +227,26 @@ if ( ! imagejpeg( $source_image, $attachment_file, 90 ) ) {
 	$fail( 'GD could not write the automatic optimization smoke JPEG' );
 }
 
+// Background work only purges the published pages known to show an image.
+$attachment_parent_id = wp_insert_post(
+	array(
+		'post_title'  => 'Empirical Responsive Images automatic smoke parent',
+		'post_status' => 'publish',
+	)
+);
+
+if ( is_wp_error( $attachment_parent_id ) || $attachment_parent_id < 1 ) {
+	$fail( 'could not create the automatic optimization smoke parent post' );
+}
+
 $attachment_id = wp_insert_attachment(
 	array(
 		'post_mime_type' => 'image/jpeg',
 		'post_title'     => 'Empirical Responsive Images automatic smoke',
 		'post_status'    => 'inherit',
 	),
-	$attachment_file
+	$attachment_file,
+	$attachment_parent_id
 );
 
 if ( is_wp_error( $attachment_id ) || $attachment_id < 1 ) {
@@ -729,6 +742,7 @@ foreach ( $sidecar_files as $source_formats ) {
 
 wp_clear_scheduled_hook( Background_Optimizer::BATCH_HOOK );
 wp_delete_attachment( $attachment_id, true );
+wp_delete_post( $attachment_parent_id, true );
 
 if ( array() !== ( new Observation_Store() )->get_attachment_slot_widths( $attachment_id ) ) {
 	$fail( 'deleting an attachment left visitor-learned layout data behind' );
