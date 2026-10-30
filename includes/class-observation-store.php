@@ -348,9 +348,7 @@ final class Observation_Store {
 	 * @return bool
 	 */
 	public function attachment_layout_is_recorded( int $attachment_id, int $viewport_width, int $slot_width ): bool {
-		$slot_widths = $this->get_attachment_slot_widths( $attachment_id );
-
-		return absint( $slot_widths[ (string) $viewport_width ] ?? 0 ) >= max( 1, $slot_width );
+		return $this->slot_map_covers( $this->get_attachment_slot_widths( $attachment_id ), $viewport_width, $slot_width );
 	}
 
 	/**
@@ -378,7 +376,7 @@ final class Observation_Store {
 
 		$slot_widths = is_array( $entry['slot_widths'] ?? null ) ? $this->sanitize_slot_width_map( $entry['slot_widths'] ) : array();
 
-		if ( absint( $slot_widths[ (string) $viewport_width ] ?? 0 ) < max( 1, $slot_width ) ) {
+		if ( ! $this->slot_map_covers( $slot_widths, $viewport_width, $slot_width ) ) {
 			return false;
 		}
 
@@ -388,6 +386,24 @@ final class Observation_Store {
 		return isset( $entry['target_widths'][ 'w' . $width ] )
 			|| ( $source_width > 0 && $width >= $source_width )
 			|| count( $automatic_widths ) >= self::MAX_AUTOMATIC_ASSET_WIDTHS;
+	}
+
+	/**
+	 * Check whether storing one layout would leave a slot map unchanged.
+	 *
+	 * Full maps keep their smallest viewports, so a larger viewport is never stored.
+	 *
+	 * @param array $slot_widths    Sanitized slot widths keyed by viewport.
+	 * @param int   $viewport_width Coarse viewport bucket.
+	 * @param int   $slot_width     Coarse rendered slot bucket.
+	 * @return bool
+	 */
+	private function slot_map_covers( array $slot_widths, int $viewport_width, int $slot_width ): bool {
+		if ( absint( $slot_widths[ (string) $viewport_width ] ?? 0 ) >= max( 1, $slot_width ) ) {
+			return true;
+		}
+
+		return count( $slot_widths ) >= self::MAX_SLOT_WIDTHS_PER_TARGET && $viewport_width > max( array_keys( $slot_widths ) );
 	}
 
 	/**

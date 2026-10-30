@@ -999,6 +999,10 @@ final class Visitor_Gap_Store {
 			? $reported_width
 			: ( $is_critical ? self::critical_width( $reported_width, $maximum ) : self::canonical_width( $reported_width, $maximum ) );
 
+		if ( $requested_width < $minimum ) {
+			return array();
+		}
+
 		$work_width = $native_width > 0 ? $native_width : $requested_width;
 		$job_id     = $this->job_id( $target_token, $work_width );
 		$job        = isset( $data['jobs'][ $job_id ] ) && is_array( $data['jobs'][ $job_id ] ) ? $data['jobs'][ $job_id ] : array();
@@ -1052,10 +1056,6 @@ final class Visitor_Gap_Store {
 				&& Visitor_Gap_Target::has_exact_width( $target, $work_width, $this->get_asset_manager() )
 				&& Visitor_Gap_Target::is_optimization_covered( $target, $work_width, $this->get_asset_manager(), $required_formats )
 			);
-
-		if ( $requested_width < $minimum ) {
-			return array();
-		}
 
 		// A job that would change nothing still spends daily work and purges pages.
 		if ( $files_ready && ( ! $has_layout_hint || $this->layout_is_recorded( $target, $work_width, $viewport_width, $slot_width ) ) ) {

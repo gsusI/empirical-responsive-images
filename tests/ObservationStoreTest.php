@@ -181,6 +181,20 @@ final class ObservationStoreTest extends TestCase {
 		self::assertTrue( $store->asset_layout_is_recorded( $asset_url, 128, 1536, 208 ) );
 	}
 
+	public function test_layout_checks_treat_viewports_past_a_full_slot_map_as_settled(): void {
+		$GLOBALS['eri_test_image_attachments'][901] = true;
+
+		$store = new Observation_Store();
+
+		for ( $bucket = 1; $bucket <= 40; $bucket++ ) {
+			self::assertTrue( $store->record_automatic_attachment_slot( 901, 200 + $bucket * 2, 64 ) );
+		}
+
+		self::assertTrue( $store->attachment_layout_is_recorded( 901, 5120, 64 ) );
+		self::assertFalse( $store->attachment_layout_is_recorded( 901, 203, 64 ) );
+		self::assertFalse( $store->record_automatic_attachment_slot( 901, 5120, 64 ) );
+	}
+
 	public function test_every_coarse_viewport_bucket_remains_learnable(): void {
 		$settings                             = $GLOBALS['eri_test_options'][ Settings::OPTION_NAME ];
 		$settings['asset_processing_enabled'] = true;
