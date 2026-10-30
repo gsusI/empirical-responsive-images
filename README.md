@@ -1,11 +1,23 @@
 # Empirical Responsive Images
 
+[![Quality](https://github.com/gsusI/empirical-responsive-images/actions/workflows/quality.yml/badge.svg)](https://github.com/gsusI/empirical-responsive-images/actions/workflows/quality.yml)
+[![WordPress.org version](https://img.shields.io/wordpress/plugin/v/empirical-responsive-images)](https://wordpress.org/plugins/empirical-responsive-images/)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
+
 > [!IMPORTANT]
 > **[Download Empirical Responsive Images from WordPress.org](https://wordpress.org/plugins/empirical-responsive-images/)**
 
 Empirical Responsive Images learns which image sizes a WordPress site actually needs, then automatically generates matching responsive variants and WebP/AVIF sidecars when the server supports them.
 
 It is built for people who want better responsive image output without sending media to an external optimization service.
+
+![Observe, confirm, generate: real browser evidence becomes right-sized WordPress thumbnails](marketing/exports/plugin-observe-confirm-generate-workflow.png)
+
+## Example result
+
+On one test page, mobile Lighthouse performance went from 75 to 99 and Largest Contentful Paint from 7.2 seconds to 2.3 seconds. Scores vary by site and test run.
+
+![Mobile Lighthouse report before and after, with performance rising from 75 to 99](marketing/exports/lighthouse-before-after-wide.png)
 
 ## What it does
 
@@ -78,6 +90,16 @@ The publisher creates a fresh SVN checkout and an immutable version tag. Normal
 publishes let SVN read its native Keychain credential without another password
 prompt. Rerun `just publish-auth-setup` only after replacing or upgrading the SVN
 binary.
+
+## Deploy to a test site
+
+Copy `.env.deploy.example` to `.env.deploy`, describe your server, then run:
+
+```sh
+just deploy
+```
+
+The script backs up the installed plugin, syncs the shipped files, activates the plugin, and confirms the deployed version.
 
 ## Operational guarantees
 
