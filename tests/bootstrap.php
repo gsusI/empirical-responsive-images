@@ -25,6 +25,7 @@ $GLOBALS['eri_test_registered_routes']           = array();
 $GLOBALS['eri_test_actions']                     = array();
 $GLOBALS['eri_test_filters']                     = array();
 $GLOBALS['eri_test_cron_events']                 = array();
+$GLOBALS['eri_test_is_ssl']                      = false;
 $GLOBALS['eri_test_attachment_metadata']         = array();
 $GLOBALS['eri_test_attachment_files']            = array();
 $GLOBALS['eri_test_image_attachments']           = array();
@@ -52,6 +53,7 @@ function eri_test_reset_state(): void {
 	$GLOBALS['eri_test_actions']                     = array();
 	$GLOBALS['eri_test_filters']                     = array();
 	$GLOBALS['eri_test_cron_events']                 = array();
+	$GLOBALS['eri_test_is_ssl']                      = false;
 	$GLOBALS['eri_test_attachment_metadata']         = array();
 	$GLOBALS['eri_test_attachment_files']            = array();
 	$GLOBALS['eri_test_image_attachments']           = array();
@@ -277,6 +279,10 @@ function current_user_can( string $capability ): bool {
 
 function is_admin(): bool {
 	return false;
+}
+
+function is_ssl(): bool {
+	return $GLOBALS['eri_test_is_ssl'];
 }
 
 function is_feed(): bool {

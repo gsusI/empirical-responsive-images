@@ -17,8 +17,32 @@ use EmpiricalResponsiveImages\Settings;
 use PHPUnit\Framework\TestCase;
 
 final class RendererScriptTest extends TestCase {
+	/**
+	 * Temporary uploads directory.
+	 *
+	 * @var string
+	 */
+	private $upload_directory = '';
+
 	protected function setUp(): void {
 		eri_test_reset_state();
+	}
+
+	protected function tearDown(): void {
+		if ( '' === $this->upload_directory ) {
+			return;
+		}
+
+		$entries = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator( $this->upload_directory, \FilesystemIterator::SKIP_DOTS ),
+			\RecursiveIteratorIterator::CHILD_FIRST
+		);
+
+		foreach ( $entries as $entry ) {
+			$entry->isDir() ? rmdir( $entry->getPathname() ) : unlink( $entry->getPathname() );
+		}
+
+		rmdir( $this->upload_directory );
 	}
 
 	private function renderer(): Renderer {
@@ -70,7 +94,8 @@ final class RendererScriptTest extends TestCase {
 	 * @return string
 	 */
 	private function alternate_srcset_for( string $upload_base_url, string $image_url ): string {
-		$base_dir = sys_get_temp_dir() . '/eri-renderer-' . uniqid( '', true );
+		$base_dir               = sys_get_temp_dir() . '/eri-renderer-' . bin2hex( random_bytes( 8 ) );
+		$this->upload_directory = $base_dir;
 		$sidecar  = 'empirical-responsive-images/attachments/2026/10/shirt.webp';
 
 		mkdir( dirname( $base_dir . '/' . $sidecar ), 0777, true );
@@ -106,21 +131,39 @@ final class RendererScriptTest extends TestCase {
 		return (string) $method->invoke( $this->renderer(), $image, $metadata, 'webp' );
 	}
 
-	public function test_alternate_sources_use_the_scheme_of_the_image_they_replace(): void {
-		$srcset = $this->alternate_srcset_for(
-			'http://example.test/wp-content/uploads',
-			'https://example.test/wp-content/uploads/2026/10/shirt.jpg'
-		);
-
-		self::assertSame( 'https://example.test/wp-content/uploads/empirical-responsive-images/attachments/2026/10/shirt.webp 1200w', $srcset );
+	/**
+	 * Expected WebP source for an uploads base URL.
+	 *
+	 * @param string $upload_base_url Uploads base URL.
+	 * @return string
+	 */
+	private function expected_srcset( string $upload_base_url ): string {
+		return $upload_base_url . '/empirical-responsive-images/attachments/2026/10/shirt.webp 1200w';
 	}
 
-	public function test_alternate_sources_stay_on_http_when_the_image_is_on_http(): void {
-		$srcset = $this->alternate_srcset_for(
-			'https://example.test/wp-content/uploads',
-			'http://example.test/wp-content/uploads/2026/10/shirt.jpg'
-		);
+	public function test_alternate_sources_upgrade_to_https_when_the_image_is_https(): void {
+		$srcset = $this->alternate_srcset_for( 'http://example.test/wp-content/uploads', 'https://example.test/wp-content/uploads/2026/10/shirt.jpg' );
 
-		self::assertSame( 'http://example.test/wp-content/uploads/empirical-responsive-images/attachments/2026/10/shirt.webp 1200w', $srcset );
+		self::assertSame( $this->expected_srcset( 'https://example.test/wp-content/uploads' ), $srcset );
+	}
+
+	public function test_alternate_sources_upgrade_to_https_on_secure_pages(): void {
+		$GLOBALS['eri_test_is_ssl'] = true;
+
+		$srcset = $this->alternate_srcset_for( 'http://example.test/wp-content/uploads', 'http://example.test/wp-content/uploads/2026/10/shirt.jpg' );
+
+		self::assertSame( $this->expected_srcset( 'https://example.test/wp-content/uploads' ), $srcset );
+	}
+
+	public function test_alternate_sources_keep_https_uploads_when_old_content_links_over_http(): void {
+		$srcset = $this->alternate_srcset_for( 'https://example.test/wp-content/uploads', 'http://example.test/wp-content/uploads/2026/10/shirt.jpg' );
+
+		self::assertSame( $this->expected_srcset( 'https://example.test/wp-content/uploads' ), $srcset );
+	}
+
+	public function test_alternate_sources_stay_on_http_for_http_sites(): void {
+		$srcset = $this->alternate_srcset_for( 'http://example.test/wp-content/uploads', 'http://example.test/wp-content/uploads/2026/10/shirt.jpg' );
+
+		self::assertSame( $this->expected_srcset( 'http://example.test/wp-content/uploads' ), $srcset );
 	}
 }

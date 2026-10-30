@@ -1070,9 +1070,13 @@ final class Renderer {
 	 */
 	private function upload_url_for_relative_path( string $relative_path, string $source_url ): string {
 		$uploads = wp_get_upload_dir();
-		$scheme  = wp_parse_url( $source_url, PHP_URL_SCHEME );
+		$url     = trailingslashit( $uploads['baseurl'] ) . ltrim( $relative_path, '/' );
 
-		// WordPress corrects the scheme of attachment URLs but not of the uploads base URL.
-		return esc_url_raw( set_url_scheme( trailingslashit( $uploads['baseurl'] ) . ltrim( $relative_path, '/' ), is_string( $scheme ) ? $scheme : null ) );
+		// WordPress upgrades attachment URLs on secure pages but not the uploads base URL.
+		if ( is_ssl() || 'https' === wp_parse_url( $source_url, PHP_URL_SCHEME ) ) {
+			$url = set_url_scheme( $url, 'https' );
+		}
+
+		return esc_url_raw( $url );
 	}
 }
