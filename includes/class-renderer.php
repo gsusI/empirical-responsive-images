@@ -971,7 +971,7 @@ final class Renderer {
 			$mapped_path     = trailingslashit( (string) ( $uploads['basedir'] ?? '' ) ) . ltrim( $mapped_relative, '/' );
 
 			if ( Format_Generator::is_plugin_sidecar_path( $mapped_relative ) && Visitor_Gap_Target::is_current_file( $source_path, $mapped_path ) ) {
-				return $this->upload_url_for_relative_path( $mapped_relative );
+				return $this->upload_url_for_relative_path( $mapped_relative, $url );
 			}
 		}
 
@@ -1065,11 +1065,14 @@ final class Renderer {
 	 * Build upload URL for a relative file.
 	 *
 	 * @param string $relative_path Upload-relative path.
+	 * @param string $source_url    URL of the image this file stands in for.
 	 * @return string
 	 */
-	private function upload_url_for_relative_path( string $relative_path ): string {
+	private function upload_url_for_relative_path( string $relative_path, string $source_url ): string {
 		$uploads = wp_get_upload_dir();
+		$scheme  = wp_parse_url( $source_url, PHP_URL_SCHEME );
 
-		return esc_url_raw( trailingslashit( $uploads['baseurl'] ) . ltrim( $relative_path, '/' ) );
+		// WordPress corrects the scheme of attachment URLs but not of the uploads base URL.
+		return esc_url_raw( set_url_scheme( trailingslashit( $uploads['baseurl'] ) . ltrim( $relative_path, '/' ), is_string( $scheme ) ? $scheme : null ) );
 	}
 }
