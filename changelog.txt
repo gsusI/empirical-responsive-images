@@ -1,3 +1,7 @@
+= 0.3.12 - 2026-10-30 =
+* Fixed - WebP and AVIF picture sources no longer use http on HTTPS pages when the uploads base URL is stored with http. Browsers blocked those sources as mixed content, which left images missing in places such as WooCommerce product galleries. Sources are upgraded to https when the page or the original image is secure, and are never downgraded.
+* Fixed - Visitor reports no longer queue jobs that change nothing. A report is dropped when the image files exist and its layout is already stored, or could not be stored, so it no longer spends a daily work unit or purges pages.
+
 = 0.3.11 - 2026-10-19 =
 * Fixed - Background image work no longer clears every cached page. Once sizes are generated, only the published parent post and featured-image posts of each image are purged (up to 100 pages per run, filterable with empirical_responsive_images_background_purge_urls); other pages pick up the new sizes when their cache expires. Long queues previously cleared the whole site, CDN included, every night as the daily limit reset at midnight UTC. Visitor reports still carry no page URLs.
 
