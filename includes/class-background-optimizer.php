@@ -464,14 +464,13 @@ final class Background_Optimizer {
 		$urls     = array();
 		$post_ids = get_posts(
 			array(
-				'post_type'        => 'any',
-				'post_status'      => 'publish',
-				'meta_key'         => '_thumbnail_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Bounded, indexed by meta_key.
-				'meta_value'       => (string) $attachment_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Bounded, indexed by meta_key.
-				'fields'           => 'ids',
-				'posts_per_page'   => 10,
-				'no_found_rows'    => true,
-				'suppress_filters' => true,
+				'post_type'      => 'any',
+				'post_status'    => 'publish',
+				'meta_key'       => '_thumbnail_id', // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Bounded, indexed by meta_key.
+				'meta_value'     => (string) $attachment_id, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value -- Bounded, indexed by meta_key.
+				'fields'         => 'ids',
+				'posts_per_page' => 10,
+				'no_found_rows'  => true,
 			)
 		);
 
