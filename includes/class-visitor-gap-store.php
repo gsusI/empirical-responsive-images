@@ -59,6 +59,13 @@ final class Visitor_Gap_Store {
 	private $format_generator;
 
 	/**
+	 * Observation store holding learned layouts.
+	 *
+	 * @var Observation_Store|null
+	 */
+	private $observation_store;
+
+	/**
 	 * Token owned by current write lock.
 	 *
 	 * @var string
@@ -68,12 +75,14 @@ final class Visitor_Gap_Store {
 	/**
 	 * Constructor.
 	 *
-	 * @param Asset_Manager|null    $asset_manager    Local asset manager.
-	 * @param Format_Generator|null $format_generator Modern format generator.
+	 * @param Asset_Manager|null     $asset_manager     Local asset manager.
+	 * @param Format_Generator|null  $format_generator  Modern format generator.
+	 * @param Observation_Store|null $observation_store Observation store.
 	 */
-	public function __construct( ?Asset_Manager $asset_manager = null, ?Format_Generator $format_generator = null ) {
-		$this->asset_manager    = $asset_manager;
-		$this->format_generator = $format_generator;
+	public function __construct( ?Asset_Manager $asset_manager = null, ?Format_Generator $format_generator = null, ?Observation_Store $observation_store = null ) {
+		$this->asset_manager     = $asset_manager;
+		$this->format_generator  = $format_generator;
+		$this->observation_store = $observation_store;
 	}
 
 	/**
@@ -1037,8 +1046,19 @@ final class Visitor_Gap_Store {
 				&& Visitor_Gap_Target::is_optimization_covered( $target, $native_width, $this->get_asset_manager(), $required_formats )
 			)
 			: Visitor_Gap_Target::is_optimization_covered( $target, $reported_width, $this->get_asset_manager(), $required_formats );
+		$files_ready       = $already_optimized
+			|| (
+				0 === $native_width
+				&& Visitor_Gap_Target::has_exact_width( $target, $work_width, $this->get_asset_manager() )
+				&& Visitor_Gap_Target::is_optimization_covered( $target, $work_width, $this->get_asset_manager(), $required_formats )
+			);
 
-		if ( $requested_width < $minimum || ( $already_optimized && ! $has_layout_hint ) ) {
+		if ( $requested_width < $minimum ) {
+			return array();
+		}
+
+		// A job that would change nothing still spends daily work and purges pages.
+		if ( $files_ready && ( ! $has_layout_hint || $this->layout_is_recorded( $target, $work_width, $viewport_width, $slot_width ) ) ) {
 			return array();
 		}
 
@@ -1059,6 +1079,23 @@ final class Visitor_Gap_Store {
 			'managed_widths'       => Visitor_Gap_Target::get_managed_widths( $target, $this->get_asset_manager() ),
 			'trusted_confirmation' => $trusted_confirmation,
 		);
+	}
+
+	/**
+	 * Check whether a layout report would leave learned data unchanged.
+	 *
+	 * @param array $target         Resolved target.
+	 * @param int   $width          Work width.
+	 * @param int   $viewport_width Coarse viewport bucket.
+	 * @param int   $slot_width     Coarse rendered slot bucket.
+	 * @return bool
+	 */
+	private function layout_is_recorded( array $target, int $width, int $viewport_width, int $slot_width ): bool {
+		if ( 'attachment' === (string) ( $target['type'] ?? '' ) ) {
+			return $this->get_observation_store()->attachment_layout_is_recorded( absint( $target['attachment_id'] ?? 0 ), $viewport_width, $slot_width );
+		}
+
+		return $this->get_observation_store()->asset_layout_is_recorded( (string) ( $target['url'] ?? '' ), $width, $viewport_width, $slot_width );
 	}
 
 	/**
@@ -1668,6 +1705,19 @@ final class Visitor_Gap_Store {
 		}
 
 		return $this->format_generator;
+	}
+
+	/**
+	 * Get request-local observation store.
+	 *
+	 * @return Observation_Store
+	 */
+	private function get_observation_store(): Observation_Store {
+		if ( null === $this->observation_store ) {
+			$this->observation_store = new Observation_Store( $this->get_asset_manager() );
+		}
+
+		return $this->observation_store;
 	}
 
 	/**

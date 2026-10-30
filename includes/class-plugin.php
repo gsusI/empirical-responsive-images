@@ -131,7 +131,7 @@ final class Plugin {
 		$this->asset_manager        = new Asset_Manager( $this->settings );
 		$this->observation_store    = new Observation_Store( $this->asset_manager );
 		$this->format_generator     = new Format_Generator( $this->settings );
-		$this->visitor_gap_store    = new Visitor_Gap_Store( $this->asset_manager, $this->format_generator );
+		$this->visitor_gap_store    = new Visitor_Gap_Store( $this->asset_manager, $this->format_generator, $this->observation_store );
 		$this->image_sizes          = new Image_Sizes( $this->settings, $this->observation_store, $this->format_generator );
 		$this->regenerator          = new Regenerator( $this->format_generator, $this->observation_store, $this->asset_manager, $this->settings );
 		$this->background_optimizer = new Background_Optimizer( $this->settings, $this->visitor_gap_store, $this->asset_manager, $this->observation_store, $this->format_generator );

@@ -104,6 +104,52 @@ final class BackgroundOptimizerTest extends TestCase {
 		self::assertSame( array(), $GLOBALS['eri_test_cron_events'] );
 	}
 
+	public function test_learned_layout_runs_once_and_cannot_repeat_as_a_no_op_job(): void {
+		list( $optimizer, $store, $target ) = $this->services();
+
+		$this->add_covered_attachment_size();
+
+		$gap = array_merge(
+			$this->gap( $target, 796 ),
+			array(
+				'native_width'             => 796,
+				'viewport'                 => 1536,
+				'slot'                     => 400,
+				'_bucket_protocol_version' => Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION,
+			)
+		);
+
+		for ( $confirmation = 1; $confirmation <= 3; ++$confirmation ) {
+			$store->record_gaps( array( $gap ), new Settings() );
+
+			if ( $confirmation < 3 ) {
+				$data = $store->get_data();
+
+				foreach ( $data['jobs'] as &$job ) {
+					$job['last_window'] = (int) $job['last_window'] - 1;
+				}
+				unset( $job );
+
+				$GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ] = $data;
+			}
+		}
+
+		$optimizer->run();
+
+		self::assertSame( array(), $store->get_data()['jobs'] );
+		self::assertSame( 1, $store->get_data()['daily']['processed'] );
+		self::assertSame(
+			array( '1536' => 400 ),
+			( new Observation_Store( new Asset_Manager( new Settings() ) ) )->get_attachment_slot_widths( 303 )
+		);
+
+		$result = $store->record_gaps( array( $gap ), new Settings() );
+
+		self::assertSame( 0, $result['accepted'] );
+		self::assertFalse( $result['needs_worker'] );
+		self::assertSame( array(), $store->get_data()['jobs'] );
+	}
+
 	public function test_active_worker_lock_defers_without_claiming_job(): void {
 		list( $optimizer, $store, $target ) = $this->services();
 

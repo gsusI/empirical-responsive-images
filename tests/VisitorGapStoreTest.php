@@ -11,6 +11,7 @@ namespace EmpiricalResponsiveImages\Tests;
 
 use EmpiricalResponsiveImages\Format_Generator;
 use EmpiricalResponsiveImages\Image_Sizes;
+use EmpiricalResponsiveImages\Observation_Store;
 use EmpiricalResponsiveImages\Settings;
 use EmpiricalResponsiveImages\Visitor_Gap_Store;
 use EmpiricalResponsiveImages\Visitor_Gap_Target;
@@ -227,6 +228,71 @@ final class VisitorGapStoreTest extends TestCase {
 		self::assertSame( 1536, $job['viewport_width'] );
 		self::assertSame( 320, $job['slot_width'] );
 		self::assertFalse( $job['creates_width'] );
+	}
+
+	public function test_recorded_layout_does_not_queue_finished_work_again(): void {
+		$target = $this->sized_attachment_target( 101, 640 );
+		$store  = new Visitor_Gap_Store( $this->asset_manager() );
+
+		self::assertTrue( ( new Observation_Store( $this->asset_manager() ) )->record_automatic_attachment_slot( 101, 1536, 640 ) );
+
+		foreach ( array( 640, 304 ) as $slot ) {
+			$result = $store->record_gaps( array( $this->layout_gap( $target, 640, 640, 1536, $slot ) ), new Settings() );
+
+			self::assertSame( 0, $result['accepted'] );
+			self::assertFalse( $result['needs_worker'] );
+		}
+
+		self::assertSame( array(), $store->get_data()['jobs'] );
+	}
+
+	public function test_wider_slot_at_recorded_viewport_still_queues_finished_work(): void {
+		$target = $this->sized_attachment_target( 101, 640 );
+		$store  = new Visitor_Gap_Store( $this->asset_manager() );
+
+		( new Observation_Store( $this->asset_manager() ) )->record_automatic_attachment_slot( 101, 1536, 320 );
+
+		$result = $store->record_gaps( array( $this->layout_gap( $target, 640, 640, 1536, 640 ) ), new Settings() );
+
+		self::assertSame( 1, $result['accepted'] );
+		self::assertSame( 640, reset( $store->get_data()['jobs'] )['slot_width'] );
+	}
+
+	public function test_new_viewport_still_queues_finished_work(): void {
+		$target = $this->sized_attachment_target( 101, 640 );
+		$store  = new Visitor_Gap_Store( $this->asset_manager() );
+
+		( new Observation_Store( $this->asset_manager() ) )->record_automatic_attachment_slot( 101, 1536, 640 );
+
+		$result = $store->record_gaps( array( $this->layout_gap( $target, 640, 640, 1024, 320 ) ), new Settings() );
+
+		self::assertSame( 1, $result['accepted'] );
+		self::assertSame( 1024, reset( $store->get_data()['jobs'] )['viewport_width'] );
+	}
+
+	public function test_recorded_layout_still_queues_missing_files(): void {
+		$target = $this->sized_attachment_target( 101, 640 );
+		$store  = new Visitor_Gap_Store( $this->asset_manager() );
+		$width  = Visitor_Gap_Store::canonical_width( 960 );
+
+		( new Observation_Store( $this->asset_manager() ) )->record_automatic_attachment_slot( 101, 1536, 640 );
+
+		$result = $store->record_gaps( array( $this->layout_gap( $target, $width, 0, 1536, 640 ) ), new Settings() );
+
+		self::assertSame( 1, $result['accepted'] );
+		self::assertTrue( reset( $store->get_data()['jobs'] )['creates_width'] );
+	}
+
+	public function test_stale_markup_does_not_queue_a_width_that_already_exists(): void {
+		$width  = Visitor_Gap_Store::canonical_width( 640 );
+		$target = $this->sized_attachment_target( 101, $width );
+		$store  = new Visitor_Gap_Store( $this->asset_manager() );
+
+		$gap                             = $this->gap( $target, $width );
+		$gap['_bucket_protocol_version'] = Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION;
+
+		self::assertSame( 0, $store->record_gaps( array( $gap ), new Settings() )['accepted'] );
+		self::assertSame( array(), $store->get_data()['jobs'] );
 	}
 
 	public function test_server_accepts_covered_native_width_when_required_format_is_missing(): void {
@@ -1087,6 +1153,45 @@ final class VisitorGapStoreTest extends TestCase {
 	 */
 	private function gap( string $target, int $width ): array {
 		return compact( 'target', 'width' );
+	}
+
+	/**
+	 * Build a signed attachment target with one finished width.
+	 *
+	 * @param int $attachment_id Attachment ID.
+	 * @param int $width         Finished width.
+	 * @return string
+	 */
+	private function sized_attachment_target( int $attachment_id, int $width ): string {
+		return $this->attachment_target(
+			$attachment_id,
+			array(
+				'medium' => array(
+					'width'  => $width,
+					'height' => (int) round( $width * 0.625 ),
+					'file'   => 'image-' . $width . '.jpg',
+				),
+			)
+		);
+	}
+
+	/**
+	 * Build one current-protocol gap carrying layout evidence.
+	 *
+	 * @param string $target   Signed target.
+	 * @param int    $width    Width.
+	 * @param int    $native   Native width hint, or zero.
+	 * @param int    $viewport Viewport width.
+	 * @param int    $slot     Slot width.
+	 * @return array
+	 */
+	private function layout_gap( string $target, int $width, int $native, int $viewport, int $slot ): array {
+		$gap = array_merge( $this->gap( $target, $width ), compact( 'viewport', 'slot' ) );
+
+		$gap['native_width']             = $native;
+		$gap['_bucket_protocol_version'] = Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION;
+
+		return $gap;
 	}
 
 	/**

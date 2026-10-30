@@ -340,6 +340,57 @@ final class Observation_Store {
 	}
 
 	/**
+	 * Check whether an attachment layout report would leave stored slots unchanged.
+	 *
+	 * @param int $attachment_id  Attachment ID.
+	 * @param int $viewport_width Coarse viewport bucket.
+	 * @param int $slot_width     Coarse rendered slot bucket.
+	 * @return bool
+	 */
+	public function attachment_layout_is_recorded( int $attachment_id, int $viewport_width, int $slot_width ): bool {
+		$slot_widths = $this->get_attachment_slot_widths( $attachment_id );
+
+		return absint( $slot_widths[ (string) $viewport_width ] ?? 0 ) >= max( 1, $slot_width );
+	}
+
+	/**
+	 * Check whether an asset layout report would leave stored data unchanged.
+	 *
+	 * @param string $url            Manageable local asset URL.
+	 * @param int    $width          Target width.
+	 * @param int    $viewport_width Coarse viewport bucket.
+	 * @param int    $slot_width     Coarse rendered slot bucket.
+	 * @return bool
+	 */
+	public function asset_layout_is_recorded( string $url, int $width, int $viewport_width, int $slot_width ): bool {
+		$key = null === $this->asset_manager ? '' : $this->asset_manager->key_for_url( $url );
+
+		if ( '' === $key ) {
+			return false;
+		}
+
+		$data  = $this->get_data();
+		$entry = isset( $data['assets'][ $key ] ) && is_array( $data['assets'][ $key ] ) ? $data['assets'][ $key ] : array();
+
+		if ( empty( $entry ) ) {
+			return false;
+		}
+
+		$slot_widths = is_array( $entry['slot_widths'] ?? null ) ? $this->sanitize_slot_width_map( $entry['slot_widths'] ) : array();
+
+		if ( absint( $slot_widths[ (string) $viewport_width ] ?? 0 ) < max( 1, $slot_width ) ) {
+			return false;
+		}
+
+		$source_width     = absint( $entry['natural_width'] ?? 0 );
+		$automatic_widths = is_array( $entry['automatic_target_widths'] ?? null ) ? $entry['automatic_target_widths'] : array();
+
+		return isset( $entry['target_widths'][ 'w' . $width ] )
+			|| ( $source_width > 0 && $width >= $source_width )
+			|| count( $automatic_widths ) >= self::MAX_AUTOMATIC_ASSET_WIDTHS;
+	}
+
+	/**
 	 * Store observation payload.
 	 *
 	 * @param array    $payload  Sanitized-ish REST payload.

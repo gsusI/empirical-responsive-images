@@ -156,6 +156,31 @@ final class ObservationStoreTest extends TestCase {
 		self::assertSame( array(), $store->get_attachment_slot_widths( 901 ) );
 	}
 
+	public function test_layout_checks_report_only_evidence_the_worker_would_keep(): void {
+		$settings                             = $GLOBALS['eri_test_options'][ Settings::OPTION_NAME ];
+		$settings['asset_processing_enabled'] = true;
+		$GLOBALS['eri_test_options'][ Settings::OPTION_NAME ] = $settings;
+		$GLOBALS['eri_test_image_attachments'][901]           = true;
+
+		$asset_url = 'https://example.test/wp-content/.wordpress-org/icon-128x128.png';
+		$store     = new Observation_Store( new Asset_Manager( new Settings() ) );
+
+		self::assertFalse( $store->attachment_layout_is_recorded( 901, 1536, 208 ) );
+		self::assertTrue( $store->record_automatic_attachment_slot( 901, 1536, 208 ) );
+		self::assertTrue( $store->attachment_layout_is_recorded( 901, 1536, 208 ) );
+		self::assertTrue( $store->attachment_layout_is_recorded( 901, 1536, 160 ) );
+		self::assertFalse( $store->attachment_layout_is_recorded( 901, 1536, 224 ) );
+		self::assertFalse( $store->attachment_layout_is_recorded( 901, 1024, 208 ) );
+
+		self::assertFalse( $store->asset_layout_is_recorded( $asset_url, 64, 1536, 208 ) );
+		self::assertTrue( $store->record_automatic_asset_width( $asset_url, 64, 1536, 208 ) );
+		self::assertTrue( $store->asset_layout_is_recorded( $asset_url, 64, 1536, 208 ) );
+		self::assertTrue( $store->asset_layout_is_recorded( $asset_url, 64, 1536, 160 ) );
+		self::assertFalse( $store->asset_layout_is_recorded( $asset_url, 64, 1536, 224 ) );
+		self::assertFalse( $store->asset_layout_is_recorded( $asset_url, 80, 1536, 208 ) );
+		self::assertTrue( $store->asset_layout_is_recorded( $asset_url, 128, 1536, 208 ) );
+	}
+
 	public function test_every_coarse_viewport_bucket_remains_learnable(): void {
 		$settings                             = $GLOBALS['eri_test_options'][ Settings::OPTION_NAME ];
 		$settings['asset_processing_enabled'] = true;
