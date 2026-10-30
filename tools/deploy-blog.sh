@@ -3,12 +3,22 @@ set -euo pipefail
 
 SLUG="empirical-responsive-images"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SSH_ALIAS="my-server"
-SITE_OWNER="site-user"
-SITE_ROOT="/var/www/example.com/public_html"
+DEPLOY_ENV="${ROOT}/.env.deploy"
+
+if [[ ! -f "${DEPLOY_ENV}" ]]; then
+	echo "Missing .env.deploy. Copy .env.deploy.example and describe your test site." >&2
+	exit 1
+fi
+
+# shellcheck source=/dev/null
+source "${DEPLOY_ENV}"
+
+SSH_ALIAS="${DEPLOY_SSH_ALIAS:?Set DEPLOY_SSH_ALIAS in .env.deploy}"
+SITE_OWNER="${DEPLOY_SITE_OWNER:?Set DEPLOY_SITE_OWNER in .env.deploy}"
+SITE_ROOT="${DEPLOY_SITE_ROOT:?Set DEPLOY_SITE_ROOT in .env.deploy}"
 PLUGIN_ROOT="${SITE_ROOT}/wp-content/plugins/${SLUG}"
-BACKUP_ROOT="/var/www/example.com/backups"
-WP_CLI="/usr/local/bin/wp"
+BACKUP_ROOT="${DEPLOY_BACKUP_ROOT:?Set DEPLOY_BACKUP_ROOT in .env.deploy}"
+WP_CLI="${DEPLOY_WP_CLI:-/usr/local/bin/wp}"
 VERSION="$(awk -F': ' '/^[[:space:]]*\* Version:/{ print $2; exit }' "${ROOT}/${SLUG}.php")"
 BACKUP_TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 BACKUP_PATH="${BACKUP_ROOT}/${SLUG}-pre-${VERSION}-${BACKUP_TIMESTAMP}.tar.gz"
