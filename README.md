@@ -9,15 +9,21 @@
 
 Empirical Responsive Images learns which image sizes a WordPress site actually needs, then automatically generates matching responsive variants and WebP/AVIF sidecars when the server supports them.
 
-It is built for people who want better responsive image output without sending media to an external optimization service.
+It is built for people who want better responsive image output without any setup and without sending media to an external optimization service.
 
-![Observe, confirm, generate: real browser evidence becomes right-sized WordPress thumbnails](marketing/exports/plugin-observe-confirm-generate-workflow.png)
+![Activate it and forget it: you have one job, and the plugin does everything else automatically](marketing/exports/activate-it-forget-it.png)
 
 ## Example result
 
 On one test page, mobile Lighthouse performance went from 75 to 99 and Largest Contentful Paint from 7.2 seconds to 2.3 seconds. Scores vary by site and test run.
 
 ![Mobile Lighthouse report before and after, with performance rising from 75 to 99](marketing/exports/lighthouse-before-after-wide.png)
+
+## Why it matters
+
+![You're sending a billboard to a phone: a 2560px photo in a 390px slot has 10 times the pixels the screen can show](marketing/exports/guerrilla-billboard-to-a-phone.png)
+
+![Missing poster for a 1194px image: WordPress made 1024 and 1536, so the browser took the 1536 instead](marketing/exports/guerrilla-missing-poster.png)
 
 ## What it does
 

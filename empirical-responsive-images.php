@@ -1,8 +1,8 @@
 <?php
 /**
- * Plugin Name: Empirical Responsive Images
+ * Plugin Name: Empirical Responsive Images – Auto Image Sizes, WebP & AVIF
  * Plugin URI: https://github.com/gsusI/empirical-responsive-images
- * Description: Helps WordPress serve better-sized images with responsive thumbnails and WebP/AVIF versions.
+ * Description: Fix oversized images with zero setup. Automatically creates the image sizes, thumbnails, WebP and AVIF your pages need, in the background.
  * Version: 0.3.12
  * Requires at least: 6.9
  * Requires PHP: 7.4

@@ -1,6 +1,6 @@
-=== Empirical Responsive Images ===
+=== Empirical Responsive Images – Auto Image Sizes, WebP & AVIF ===
 Contributors: jesusinica
-Tags: responsive images, image optimization, image sizes, webp, avif
+Tags: responsive images, image sizes, srcset, thumbnails, lcp
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -8,44 +8,43 @@ Stable tag: 0.3.12
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Learns which image sizes visitors need, then creates responsive WordPress thumbnails and WebP/AVIF versions in the background.
+Fix oversized images with zero setup. Automatically creates the image sizes, thumbnails, WebP and AVIF your pages need, in the background.
 
 == Description ==
 
-Empirical Responsive Images helps WordPress send each visitor an image closer to the size shown on their screen. Smaller, better-sized images can mean less data to download and faster-looking pages.
+**Activate it and forget it.** Empirical Responsive Images finds the images your WordPress site sends too large, then creates the sizes that actually fit. There is nothing to configure, no bulk run to start, no queue to approve, and no account or API key.
 
-Instead of guessing which image sizes your site might need, the plugin learns from real page layouts. When it repeatedly finds a missing size, it creates that thumbnail in the background. It can also create WebP and AVIF versions when your server supports them.
+Most sites send phones images made for desktops. WordPress can only offer the thumbnail sizes it already has, so when none is close, the browser downloads far more image than the screen can show. PageSpeed Insights reports this as "Improve image delivery" or "Properly size images", and it can hold back your Largest Contentful Paint (LCP) and Core Web Vitals.
 
-This directly targets common PageSpeed Insights messages such as "Improve image delivery," "Properly size images," and "Serve images in next-gen formats." Results still depend on your theme, original images, cache, hosting, and other plugins.
+Other tools ask you to guess which image sizes you need. This one measures them on your real pages, so it only creates sizes your layouts use.
 
-= Why image size matters =
+= What happens after you activate it =
 
-A large image may be displayed in a small space. If WordPress has no close match, the browser may download far more image data than it needs.
+None of this needs you. It runs on its own for as long as the plugin is active.
 
-Empirical Responsive Images gives WordPress more useful choices. Your existing responsive image system stays in place; the plugin fills proven gaps instead of replacing it.
+* A small browser check compares each displayed image with the sizes already available. Images with a good match are ignored.
+* Missing sizes are confirmed before any work is scheduled.
+* WordPress creates the new image files later, as a background task.
+* Your existing responsive image markup picks them up, and your cache refreshes.
+* Future visitors get a closer image size.
 
-= How it works =
+No resizing happens in the visitor's browser, and no image is generated while a visitor waits for the page.
 
-1. After a page loads, a small browser check compares displayed images with the sizes already available.
-2. Images with a good match are ignored and send no report.
-3. Missing sizes must be confirmed before any work is scheduled.
-4. WordPress creates the needed image files later, as a background task.
-5. Future visitors can receive a closer image size.
-
-No resizing happens in the visitor's browser. No image is generated while a visitor waits for the page.
-
-= What it can improve =
+= What you get =
 
 * Better-sized responsive images for phones, tablets, laptops, and high-density screens.
-* New thumbnails for WordPress Media Library images.
-* Responsive versions of manageable local theme and plugin images.
-* WebP and AVIF versions when supported by the server.
-* Better image choices through WordPress's normal responsive image markup.
+* Missing WordPress thumbnails created automatically, so there is no need to regenerate thumbnails for your whole library.
+* WebP and AVIF versions when your server supports them.
+* Better `srcset` and `sizes` choices through normal WordPress markup.
+* Coverage for Media Library images and manageable local theme and plugin images.
 * Automatic cache refresh after new image files are ready.
-* Clear status tables under Tools > Responsive Images.
-* Optional maintenance commands for advanced users.
+* Status tables under Tools > Responsive Images, if you are curious. Nothing there needs your attention.
 
-The plugin keeps existing custom image choices, crops, and picture layouts. It does not send images to a content delivery network (CDN) or outside image service.
+Your existing custom image choices, crops, and picture layouts stay as they are. The plugin fills proven gaps instead of replacing WordPress responsive images. It is free, and it does not send images to a content delivery network (CDN) or outside image service.
+
+= Real result =
+
+On one test page, the mobile PageSpeed score went from 75 to 99 and LCP improved from 7.2 seconds to 2.3 seconds. Results depend on your theme, original images, cache, hosting, and other plugins, so no score is guaranteed.
 
 == Privacy ==
 
@@ -67,20 +66,22 @@ Normal visitors must confirm the same missing size over time. Hard limits on req
 
 == Installation ==
 
-1. Upload `empirical-responsive-images` to `/wp-content/plugins/`.
-2. Activate the plugin.
-3. Done. It starts learning missing local image sizes and creates confirmed sizes in the background.
+1. In WordPress, go to Plugins > Add New and search for Empirical Responsive Images.
+2. Click Install Now, then Activate.
+3. That's it. There is no setup step.
 
-Tools > Responsive Images shows progress and advanced settings. You do not need to approve each size manually.
+The plugin starts learning right away and creates confirmed sizes in the background.
 
 == Screenshots ==
 
-1. Simple workflow: observe real image spaces, confirm demand, and create useful WordPress image sizes in the background.
-2. Mobile Lighthouse and PageSpeed result on one test page before and after right-sized image optimization. Scores vary by site and test run.
-3. Privacy summary with observation totals and WebP/AVIF support status.
-4. Local images with the widths and spaces seen on real pages.
-5. Learning queue showing recent demand and image-generation status.
-6. Learned image sizes with usage totals, screen sizes, and how each size was confirmed.
+1. Activate it and forget it: you have one job, and the plugin does everything else automatically.
+2. A large photo in a small phone slot wastes most of its pixels. The plugin creates the size that fits.
+3. The image size your layout needs but WordPress never made. The plugin makes it for you.
+4. Mobile Lighthouse and PageSpeed result on one test page before and after right-sized image optimization. Scores vary by site and test run.
+5. Optional status page: totals and WebP/AVIF support, with nothing for you to do.
+6. Optional status page: local images with the widths and spaces seen on real pages.
+7. Optional status page: recent demand and image generation, which run automatically.
+8. Optional status page: learned image sizes with usage totals and screen sizes.
 
 == Advanced commands ==
 
@@ -98,11 +99,31 @@ Force a rebuild:
 
 == Frequently Asked Questions ==
 
+= Do I need to configure anything? =
+
+No. Install it, activate it, and you are done. It learns, creates sizes, retries when necessary, and refreshes your cache on its own. The settings under Tools > Responsive Images are optional.
+
+= Do I need to approve every new size? =
+
+No. Confirmed gaps are queued, created, and used automatically. The administration page shows progress; it is not an approval queue.
+
+= Do I need to regenerate thumbnails? =
+
+No. The plugin creates the missing sizes your pages actually use, one image at a time, in the background. If you prefer to run a rebuild yourself, the optional WP-CLI commands can do it.
+
+= How long until I see results? =
+
+Pages that get regular traffic are usually first. Regular visitors confirm a missing size across three separate 15-minute periods by default, and the plugin runs up to 50 image jobs per day, so large sites catch up gradually. Pages with few visitors take longer.
+
 = Can this improve "Improve image delivery" or "Properly size images" in PageSpeed Insights? =
 
 It can help when PageSpeed finds images that are much larger than the space where they appear. The plugin creates closer size choices and can add WebP/AVIF versions.
 
 It does not heavily compress original images or turn animated GIFs into videos, so some recommendations may remain. One test page improved from 75 to 99 and its Largest Contentful Paint (LCP) improved from 7.2 seconds to 2.3 seconds. Scores vary; no PageSpeed or Core Web Vitals result is guaranteed.
+
+= Does it convert images to WebP and AVIF? =
+
+Yes, when your server's image library supports the format. It keeps your originals and adds separate WebP/AVIF files.
 
 = Is this different from an image compression plugin? =
 
@@ -118,9 +139,9 @@ The plugin can refresh caches from WP Rocket, W3 Total Cache, WP Super Cache, Li
 
 It can still learn WordPress images when a CDN changes their public URLs. If a separate CDN keeps its own page cache, that CDN or its WordPress plugin must also clear the cached page.
 
-= Does it work with lazy loading and page builders? =
+= Does it work with lazy loading, page builders, and WooCommerce? =
 
-Usually, when they produce normal WordPress image elements. The plugin rechecks lazy images after they load and watches images added after the page opens. When a gallery or slider swaps a wrapped image, its WebP/AVIF sources step aside so the new image shows.
+Usually, when they produce normal WordPress image elements. The plugin rechecks lazy images after they load and watches images added after the page opens. When a gallery, slider, or WooCommerce product variation swaps a wrapped image, its WebP/AVIF sources step aside so the new image shows.
 
 CSS background images, drawing canvases, remote images, and heavily customized JavaScript galleries may not be eligible.
 
@@ -128,13 +149,9 @@ CSS background images, drawing canvases, remote images, and heavily customized J
 
 Image checks run during spare browser time. Missing files are created later by WordPress background tasks. Visitors do not wait for resizing or WebP/AVIF generation.
 
-= Do I need to approve every new size? =
-
-No. Confirmed gaps are queued, created, retried when necessary, and used automatically. The administration page shows progress; it is not an approval queue.
-
 = Do logged-in users need the same repeated visits? =
 
-Subscribers do. By default, a logged-in Contributor, Author, Editor, or Administrator can confirm a valid missing size sooner. Regular visitors must confirm the same gap in three separate 15-minute periods by default.
+Subscribers do. By default, a logged-in Contributor, Author, Editor, or Administrator can confirm a valid missing size sooner.
 
 = What visitor information is collected? =
 
