@@ -60,22 +60,12 @@ magick "${after_source}" -resize '720x650>' -bordercolor "${border}" -border 1 "
 magick "${queue_source}" -resize '1450x720>' -bordercolor "${border}" -border 1 "${work_dir}/queue-feature.png"
 magick "${sizes_source}" -resize '1450x720>' -bordercolor "${border}" -border 1 "${work_dir}/sizes-feature.png"
 magick "${assets_source}" -resize '1450x720>' -bordercolor "${border}" -border 1 "${work_dir}/assets-feature.png"
-magick "${queue_source}" -resize '430x310>' -bordercolor "${border}" -border 1 "${work_dir}/queue-flow.png"
-magick "${sizes_source}" -resize '430x310>' -bordercolor "${border}" -border 1 "${work_dir}/sizes-flow.png"
-magick "${assets_source}" -resize '430x310>' -bordercolor "${border}" -border 1 "${work_dir}/assets-flow.png"
 magick "${summary_source}" -resize '1450x720>' -bordercolor "${border}" -border 1 "${work_dir}/summary-feature.png"
 magick "${summary_source}" -resize '960x420>' -bordercolor "${border}" -border 1 "${work_dir}/summary-square.png"
-magick -size 924x58 xc:none \
-	-gravity center \
-	-font "${font_regular}" \
-	-pointsize 22 \
-	-fill "${green_dark}" \
-	-annotate +0-2 'No resize work in browser. No image generation in page response.' \
-	"${work_dir}/workflow-pill-label.png"
 
 # Wide, evidence-first before/after graphic.
 magick -size 1600x900 "xc:${canvas}" \
-	-fill "${blue}" -draw 'roundrectangle 62,48 348,86 19,19' \
+	-fill "${blue}" -draw 'roundrectangle 62,48 402,86 19,19' \
 	-font "${font_regular}" -pointsize 18 -fill white -draw "text 84,74 'EMPIRICAL RESPONSIVE IMAGES'" \
 	-font "${font_rounded}" -pointsize 58 -fill "${ink}" -draw "text 62,154 'Mobile performance: 75 → 99'" \
 	-font "${font_regular}" -pointsize 25 -fill "${muted}" -draw "text 64,198 'LCP improved from 7.2s to 2.3s on this test page'" \
@@ -95,7 +85,7 @@ magick -size 1600x900 "xc:${canvas}" \
 
 # Square social proof graphic with readable metrics and full screenshots.
 magick -size 1080x1080 "xc:${canvas}" \
-	-fill "${blue}" -draw 'roundrectangle 56,48 338,86 19,19' \
+	-fill "${blue}" -draw 'roundrectangle 56,48 396,86 19,19' \
 	-font "${font_regular}" -pointsize 18 -fill white -draw "text 77,74 'EMPIRICAL RESPONSIVE IMAGES'" \
 	-font "${font_rounded}" -pointsize 72 -fill "${ink}" -draw "text 54,174 '75 → 99'" \
 	-font "${font_regular}" -pointsize 27 -fill "${muted}" -draw "text 58,217 'Mobile Lighthouse performance'" \
@@ -163,34 +153,6 @@ magick -size 1600x1100 "xc:${canvas}" \
 	"${work_dir}/sizes-feature.png" -gravity northwest -geometry +228+292 -composite \
 	"${output_dir}/admin-registered-sizes-feature.png"
 
-# End-to-end workflow graphic using all three real admin screenshots.
-magick -size 1600x900 "xc:${canvas}" \
-	-fill "${blue}" -draw 'roundrectangle 58,44 398,84 20,20' \
-	-font "${font_regular}" -pointsize 19 -fill white -draw "text 81,71 'EMPIRICAL RESPONSIVE IMAGES'" \
-	-font "${font_rounded}" -pointsize 57 -fill "${ink}" -draw "text 58,158 'Observe → Confirm → Generate'" \
-	-font "${font_regular}" -pointsize 25 -fill "${muted}" -draw "text 60,203 'Real browser evidence becomes right-sized WordPress thumbnails.'" \
-	-fill "${card}" -stroke "${border}" -strokewidth 2 -draw 'roundrectangle 48,244 520,746 26,26' \
-	-fill "${card}" -draw 'roundrectangle 564,244 1036,746 26,26' \
-	-fill "${card}" -stroke "${green}" -strokewidth 3 -draw 'roundrectangle 1080,244 1552,746 26,26' \
-	-stroke none -fill "${blue}" -draw 'circle 88,288 108,288' \
-	-fill white -font "${font_rounded}" -pointsize 20 -draw "text 82,295 '1'" \
-	-fill "${ink}" -font "${font_rounded}" -pointsize 31 -draw "text 122,299 'Observe'" \
-	-font "${font_regular}" -pointsize 19 -fill "${muted}" -draw "text 80,340 'Browser reports real slots'" \
-	-fill "${blue}" -draw 'circle 604,288 624,288' \
-	-fill white -font "${font_rounded}" -pointsize 20 -draw "text 598,295 '2'" \
-	-fill "${ink}" -font "${font_rounded}" -pointsize 31 -draw "text 638,299 'Confirm'" \
-	-font "${font_regular}" -pointsize 19 -fill "${muted}" -draw "text 596,340 'Repeated demand enters queue'" \
-	-fill "${green}" -draw 'circle 1120,288 1140,288' \
-	-fill white -font "${font_rounded}" -pointsize 20 -draw "text 1114,295 '3'" \
-	-fill "${ink}" -font "${font_rounded}" -pointsize 31 -draw "text 1154,299 'Generate'" \
-	-font "${font_regular}" -pointsize 19 -fill "${muted}" -draw "text 1112,340 'Proven sizes join WordPress'" \
-	"${work_dir}/assets-flow.png" -gravity northwest -geometry +69+380 -composite \
-	"${work_dir}/queue-flow.png" -gravity northwest -geometry +585+380 -composite \
-	"${work_dir}/sizes-flow.png" -gravity northwest -geometry +1101+380 -composite \
-	-stroke none -fill "${green_soft}" -draw 'roundrectangle 338,792 1262,850 29,29' \
-	"${work_dir}/workflow-pill-label.png" -gravity northwest -geometry +338+792 -composite \
-	"${output_dir}/plugin-observe-confirm-generate-workflow.png"
-
 # Admin overview: privacy-conscious observation totals and format support.
 magick -size 1600x900 "xc:${canvas}" \
 	-fill "${blue}" -draw 'roundrectangle 58,48 398,88 20,20' \
@@ -229,12 +191,11 @@ magick -size 1080x1080 "xc:${canvas}" \
 	-font "${font_regular}" -pointsize 21 -fill "${green_dark}" -draw "text 351,997 'WebP + AVIF enabled and supported'" \
 	"${output_dir}/plugin-evidence-summary-square.png"
 
-cp "${output_dir}/plugin-observe-confirm-generate-workflow.png" "${wporg_assets_dir}/screenshot-1.png"
-cp "${output_dir}/lighthouse-before-after-wide.png" "${wporg_assets_dir}/screenshot-2.png"
-cp "${output_dir}/admin-observed-slots-summary-feature.png" "${wporg_assets_dir}/screenshot-3.png"
-cp "${output_dir}/admin-observed-assets-feature.png" "${wporg_assets_dir}/screenshot-4.png"
-cp "${output_dir}/admin-learning-queue-feature.png" "${wporg_assets_dir}/screenshot-5.png"
-cp "${output_dir}/admin-registered-sizes-feature.png" "${wporg_assets_dir}/screenshot-6.png"
+cp "${output_dir}/lighthouse-before-after-wide.png" "${wporg_assets_dir}/screenshot-4.png"
+cp "${output_dir}/admin-observed-slots-summary-feature.png" "${wporg_assets_dir}/screenshot-5.png"
+cp "${output_dir}/admin-observed-assets-feature.png" "${wporg_assets_dir}/screenshot-6.png"
+cp "${output_dir}/admin-learning-queue-feature.png" "${wporg_assets_dir}/screenshot-7.png"
+cp "${output_dir}/admin-registered-sizes-feature.png" "${wporg_assets_dir}/screenshot-8.png"
 
 chmod 0644 "${source_dir}"/*.png "${output_dir}"/*.png "${wporg_assets_dir}"/screenshot-*.png
 

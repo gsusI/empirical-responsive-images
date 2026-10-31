@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Missing</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+	body {
+		position: relative;
+		width: 1080px;
+		height: 1350px;
+		background: var(--ink);
+		color: var(--ink);
+	}
+
+	.flyer {
+		position: absolute;
+		left: 62px;
+		top: 56px;
+		width: 956px;
+		height: 1238px;
+		transform: rotate(-1.1deg);
+	}
+
+	.sheet {
+		position: absolute;
+		inset: 0 0 270px;
+		padding: 26px 54px 0;
+		background: var(--paper);
+	}
+
+	.strip {
+		position: absolute;
+		width: 170px;
+		height: 50px;
+		background: var(--tape);
+		opacity: 0.94;
+	}
+
+	h1 {
+		font: 400 236px/0.96 var(--poster);
+		letter-spacing: -0.005em;
+		text-align: center;
+	}
+
+	.photo {
+		position: relative;
+		height: 336px;
+		margin-top: 6px;
+		border: 7px dashed var(--ink);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font: 400 156px/1 var(--poster);
+		background-image: repeating-linear-gradient(45deg, rgba(20, 18, 16, 0.11) 0 3px, transparent 3px 13px);
+	}
+
+	.photo span {
+		position: absolute;
+		left: 16px;
+		top: 14px;
+		font: 700 23px/1 var(--mono);
+	}
+
+	dl {
+		margin-top: 22px;
+		font: 400 32px/1.26 var(--typewriter);
+	}
+
+	dt {
+		display: inline;
+		font-weight: 700;
+	}
+
+	dd {
+		display: inline;
+	}
+
+	dd::after {
+		content: "\A";
+		white-space: pre;
+	}
+
+	.reward {
+		margin-top: 18px;
+		padding: 14px 18px 12px;
+		background: var(--ink);
+		color: var(--tape);
+		font: 400 54px/1 var(--poster);
+		text-align: center;
+		text-transform: uppercase;
+	}
+
+	.tabs {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		height: 270px;
+		display: grid;
+		grid-template-columns: repeat(8, 1fr);
+	}
+
+	.tabs div {
+		position: relative;
+		background: var(--paper);
+		border-left: 3px dashed rgba(20, 18, 16, 0.6);
+	}
+
+	.tabs div:first-child {
+		border-left: 0;
+	}
+
+	.tabs div.gone {
+		background: none;
+		border-left: 0;
+	}
+
+	.tabs div.lifted {
+		transform: rotate(4deg) translateY(10px);
+		transform-origin: top left;
+	}
+
+	.tabs p {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		width: 250px;
+		font: 700 18.5px/1.2 var(--body);
+		letter-spacing: -0.02em;
+		text-align: center;
+		transform: translate(-50%, -50%) rotate(-90deg);
+	}
+</style>
+</head>
+<body>
+	<div class="flyer">
+		<div class="sheet">
+			<h1>MISSING</h1>
+			<div class="photo"><span>NO PHOTO. IT WAS NEVER MADE.</span>1194px</div>
+			<dl>
+				<dt>Last seen:</dt> <dd>never. WordPress made 1024 and 1536.</dd>
+				<dt>Wanted by:</dt> <dd>your layout, on every big phone.</dd>
+				<dt>What happened:</dt> <dd>the browser took the 1536 instead.</dd>
+				<dt>If found:</dt> <dd>relax. A plugin makes it for you.</dd>
+			</dl>
+			<p class="reward">Reward: a smaller download</p>
+		</div>
+		<span class="strip" style="left:-54px;top:18px;transform:rotate(-42deg)"></span>
+		<span class="strip" style="right:-54px;top:18px;transform:rotate(42deg)"></span>
+		<div class="tabs">
+			<div><p>Empirical Responsive Images<br>Free on WordPress.org</p></div>
+			<div><p>Empirical Responsive Images<br>Free on WordPress.org</p></div>
+			<div class="gone"></div>
+			<div><p>Empirical Responsive Images<br>Free on WordPress.org</p></div>
+			<div class="lifted"><p>Empirical Responsive Images<br>Free on WordPress.org</p></div>
+			<div class="gone"></div>
+			<div class="gone"></div>
+			<div><p>Empirical Responsive Images<br>Free on WordPress.org</p></div>
+		</div>
+	</div>
+</body>
+</html>

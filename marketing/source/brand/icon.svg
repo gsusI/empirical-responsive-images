@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" fill="#FFC700"/>
+
+  <!-- The picture, cut to exactly the measured width. -->
+  <clipPath id="photo"><rect x="36" y="36" width="184" height="128"/></clipPath>
+  <rect x="36" y="36" width="184" height="128" fill="#141210"/>
+  <g clip-path="url(#photo)">
+    <circle cx="170" cy="78" r="19" fill="#FF3D2E"/>
+    <path d="M28 172 96 84l44 56 26-30 62 62z" fill="#FFC700"/>
+  </g>
+
+  <!-- The dimension line that measures it. -->
+  <g fill="#141210">
+    <rect x="36" y="182" width="14" height="44"/>
+    <rect x="206" y="182" width="14" height="44"/>
+    <rect x="36" y="197" width="184" height="14"/>
+  </g>
+</svg>

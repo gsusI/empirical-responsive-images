@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Banner</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+	body {
+		position: relative;
+		width: 1544px;
+		height: 500px;
+		background: var(--tape);
+		color: var(--ink);
+	}
+
+	.copy {
+		position: absolute;
+		left: 64px;
+		top: 58px;
+		width: 830px;
+	}
+
+	h1 {
+		font: 400 128px/0.94 var(--poster);
+		letter-spacing: -0.01em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	p {
+		margin-top: 28px;
+		font: 700 29px/1.28 var(--body);
+		letter-spacing: -0.012em;
+	}
+
+	.scene {
+		position: absolute;
+		right: 0;
+		top: 0;
+		width: 640px;
+		height: 444px;
+		overflow: hidden;
+		background: var(--ink);
+	}
+
+	.scene svg {
+		position: absolute;
+		inset: 0;
+	}
+
+	.label {
+		position: absolute;
+		font: 700 19px/1 var(--mono);
+		color: var(--ink);
+		background: var(--tape);
+		padding: 8px 11px;
+		white-space: nowrap;
+	}
+
+	.tape {
+		bottom: 0;
+		height: 56px;
+		border-top: 5px solid var(--ink);
+	}
+</style>
+</head>
+<body>
+	<div class="copy">
+		<h1>Stop guessing<br>image sizes.</h1>
+		<p>Measures your real pages, then builds the missing<br>sizes plus WebP and AVIF in the background.</p>
+	</div>
+
+	<div class="scene">
+		<svg viewBox="0 0 640 444" width="640" height="444">
+			<defs>
+				<pattern id="waste" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+					<rect width="14" height="14" fill="#141210" fill-opacity="0.45"/>
+					<rect width="3" height="14" fill="#ffc700" fill-opacity="0.8"/>
+				</pattern>
+				<mask id="outside">
+					<rect width="640" height="444" fill="#fff"/>
+					<rect x="232" y="96" width="176" height="248" fill="#000"/>
+				</mask>
+			</defs>
+			<rect width="640" height="444" fill="#f3eee1"/>
+			<circle cx="440" cy="136" r="72" fill="#ff3d2e"/>
+			<path d="M-20 444 196 118l112 158 62-74 300 242z" fill="#141210"/>
+			<path d="M196 118l44 62-30 8-22-18-26 24-28-10z" fill="#f3eee1"/>
+			<rect width="640" height="444" fill="url(#waste)" mask="url(#outside)"/>
+			<rect x="232" y="96" width="176" height="248" fill="none" stroke="#ffc700" stroke-width="7"/>
+		</svg>
+		<span class="label" style="left:232px;top:352px">what they need</span>
+		<span class="label" style="left:20px;top:20px">what they download</span>
+	</div>
+
+	<div class="tape">
+		<span style="left:0">0</span><span style="left:300px">300</span><span style="left:600px">600</span><span style="left:900px">900</span><span style="left:1200px">1200</span><span style="left:1500px">px</span>
+	</div>
+</body>
+</html>

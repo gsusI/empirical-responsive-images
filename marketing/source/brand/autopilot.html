@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Autopilot</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+	body {
+		position: relative;
+		width: 1600px;
+		height: 900px;
+		background: var(--tape);
+		color: var(--ink);
+	}
+
+	h1 {
+		position: absolute;
+		left: 64px;
+		top: 52px;
+		font: 400 136px/1 var(--poster);
+		letter-spacing: -0.01em;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+
+	.you,
+	.plugin {
+		position: absolute;
+		top: 222px;
+		height: 556px;
+		padding: 40px 44px;
+	}
+
+	.you {
+		left: 64px;
+		width: 500px;
+		border: 7px solid var(--ink);
+	}
+
+	.plugin {
+		left: 604px;
+		width: 932px;
+		background: var(--ink);
+		color: var(--paper);
+	}
+
+	h2 {
+		font: 700 22px/1 var(--mono);
+		letter-spacing: 0.02em;
+	}
+
+	.plugin h2 {
+		color: var(--tape);
+	}
+
+	.button {
+		display: inline-block;
+		margin-top: 64px;
+		padding: 26px 46px;
+		background: var(--ink);
+		color: var(--tape);
+		font: 800 50px/1 var(--body);
+		letter-spacing: -0.02em;
+	}
+
+	.you p {
+		margin-top: 62px;
+		font: 400 72px/1 var(--poster);
+		white-space: nowrap;
+		text-transform: uppercase;
+	}
+
+	ul {
+		margin-top: 24px;
+		list-style: none;
+	}
+
+	li {
+		position: relative;
+		padding: 14px 0 14px 62px;
+		font: 700 34px/1.15 var(--body);
+		letter-spacing: -0.015em;
+	}
+
+	li + li {
+		border-top: 2px solid rgba(243, 238, 225, 0.2);
+	}
+
+	li::before {
+		content: "";
+		position: absolute;
+		left: 4px;
+		top: 18px;
+		width: 34px;
+		height: 18px;
+		border-left: 8px solid var(--tape);
+		border-bottom: 8px solid var(--tape);
+		transform: rotate(-45deg);
+	}
+
+	.tape {
+		bottom: 0;
+		height: 76px;
+		border-top: 5px solid var(--ink);
+	}
+
+	.note {
+		position: absolute;
+		right: 64px;
+		bottom: 90px;
+		font: 700 19px/1 var(--body);
+	}
+</style>
+</head>
+<body>
+	<h1>Activate it. Forget it.</h1>
+
+	<div class="you">
+		<h2>YOUR JOB</h2>
+		<span class="button">Activate</span>
+		<p>That's the<br>whole list.</p>
+	</div>
+
+	<div class="plugin">
+		<h2>THE PLUGIN'S JOB. AUTOMATIC, FOREVER.</h2>
+		<ul>
+			<li>Finds images too big for their space</li>
+			<li>Creates the missing image sizes</li>
+			<li>Adds WebP and AVIF versions*</li>
+			<li>Serves them on your pages</li>
+			<li>Refreshes your cache when they're ready</li>
+			<li>Keeps learning as your site changes</li>
+		</ul>
+	</div>
+
+	<p class="note">*When your server supports them.</p>
+
+	<div class="tape">
+		<span style="left:0">0</span><span style="left:400px">400</span><span style="left:800px">800</span><span style="left:1200px">1200</span><span style="left:1500px">px</span>
+	</div>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Billboard</title>
+<link rel="stylesheet" href="brand.css">
+<style>
+	body {
+		position: relative;
+		width: 1200px;
+		height: 1200px;
+		background: var(--ink);
+		color: var(--ink);
+	}
+
+	.scene {
+		position: absolute;
+		inset: 0;
+	}
+
+	h1 {
+		position: absolute;
+		left: 48px;
+		top: 44px;
+		font: 400 158px/0.92 var(--poster);
+		letter-spacing: -0.01em;
+		text-transform: uppercase;
+	}
+
+	h1 span {
+		display: inline-block;
+		padding: 6px 18px 0;
+		background: var(--tape);
+		-webkit-box-decoration-break: clone;
+	}
+
+	.phone-label,
+	.stat {
+		position: absolute;
+		background: var(--tape);
+		font: 700 25px/1 var(--mono);
+		padding: 11px 14px;
+		white-space: nowrap;
+	}
+
+	.fine {
+		position: absolute;
+		left: 48px;
+		bottom: 146px;
+		font: 700 19px/1.3 var(--body);
+		color: var(--paper);
+		background: var(--ink);
+		padding: 8px 12px;
+	}
+
+	.brand {
+		position: absolute;
+		left: 0;
+		right: 0;
+		bottom: 62px;
+		height: 72px;
+		padding: 0 48px;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		background: var(--tape);
+		font: 800 31px/1 var(--body);
+		letter-spacing: -0.015em;
+	}
+
+	.tape {
+		bottom: 0;
+		height: 62px;
+	}
+</style>
+</head>
+<body>
+	<svg class="scene" viewBox="0 0 1200 1200" width="1200" height="1200">
+		<defs>
+			<pattern id="waste" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+				<rect width="20" height="20" fill="#141210" fill-opacity="0.5"/>
+				<rect width="4" height="20" fill="#ffc700" fill-opacity="0.8"/>
+			</pattern>
+			<mask id="outside">
+				<rect width="1200" height="1200" fill="#fff"/>
+				<rect x="524" y="618" width="152" height="330" rx="22" fill="#000"/>
+			</mask>
+		</defs>
+		<rect width="1200" height="1200" fill="#f3eee1"/>
+		<circle cx="850" cy="640" r="150" fill="#ff3d2e"/>
+		<path d="M-40 1200 420 560l180 230 130-140 520 550z" fill="#141210"/>
+		<path d="M420 560l80 102-58 18-32-34-46 46-54-16z" fill="#f3eee1"/>
+		<rect width="1200" height="1200" fill="url(#waste)" mask="url(#outside)"/>
+		<rect x="514" y="608" width="172" height="350" rx="30" fill="none" stroke="#ffc700" stroke-width="20"/>
+		<rect x="568" y="622" width="64" height="8" rx="4" fill="#ffc700"/>
+	</svg>
+
+	<h1><span>You're sending</span><br><span>a billboard</span><br><span>to a phone.</span></h1>
+
+	<span class="stat" style="right:48px;top:540px">2560px photo</span>
+	<span class="stat" style="left:296px;top:780px">390px slot</span>
+	<span class="stat" style="right:48px;top:600px;background:#ff3d2e">10× the pixels it can show*</span>
+
+	<p class="fine">*2560×1707 photo in a 390px slot on a 2× screen: 780×520 is all it can show.</p>
+
+	<div class="brand"><span>Empirical Responsive Images</span><span>Free on WordPress.org</span></div>
+	<div class="tape"></div>
+</body>
+</html>
