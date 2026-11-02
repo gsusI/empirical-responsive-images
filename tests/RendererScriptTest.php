@@ -166,4 +166,26 @@ final class RendererScriptTest extends TestCase {
 
 		self::assertSame( $this->expected_srcset( 'http://example.test/wp-content/uploads' ), $srcset );
 	}
+
+	public function test_attachment_image_filter_tolerates_loose_arguments_from_themes(): void {
+		$renderer = $this->renderer();
+		$html     = '<img src="http://example.test/wp-content/uploads/2026/10/shirt.jpg" width="1200" height="800" alt="">';
+
+		self::assertSame( $html, $renderer->filter_attachment_image_html( $html, 'http://example.test/shirt.jpg', 'full', false, '' ) );
+		self::assertSame( $html, $renderer->filter_attachment_image_html( $html, '', 'full', null, '' ) );
+		self::assertSame( $html, $renderer->filter_attachment_image_html( $html, null, 'full', false, '' ) );
+		self::assertSame( '', $renderer->filter_attachment_image_html( '', 42, 'full', false, '' ) );
+		self::assertSame(
+			$renderer->filter_attachment_image_html( $html, 42, 'full', false, '' ),
+			$renderer->filter_attachment_image_html( $html, '42', 'full', '', '' )
+		);
+	}
+
+	public function test_content_filters_pass_through_non_string_html(): void {
+		$renderer = $this->renderer();
+
+		self::assertNull( $renderer->filter_content_image_html( null, 'the_content', 42 ) );
+		self::assertNull( $renderer->filter_content_fragment( null ) );
+		self::assertSame( '<p>Hi</p>', $renderer->filter_content_image_html( '<p>Hi</p>', null, 'abc' ) );
+	}
 }

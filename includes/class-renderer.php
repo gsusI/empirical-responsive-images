@@ -122,15 +122,20 @@ final class Renderer {
 	/**
 	 * Filter WP-generated attachment image HTML.
 	 *
-	 * @param string $html          Image HTML.
-	 * @param int    $attachment_id Attachment ID.
-	 * @param mixed  $size          Size.
-	 * @param bool   $icon          Icon mode.
-	 * @param mixed  $attr          Attributes.
-	 * @return string
+	 * Core forwards the caller's arguments untouched, so themes can pass a
+	 * non-numeric ID or a null icon flag; anything unusable is left alone.
+	 *
+	 * @param mixed $html          Image HTML.
+	 * @param mixed $attachment_id Attachment ID.
+	 * @param mixed $size          Size.
+	 * @param mixed $icon          Icon mode.
+	 * @param mixed $attr          Attributes.
+	 * @return mixed
 	 */
-	public function filter_attachment_image_html( string $html, int $attachment_id, $size, bool $icon, $attr ): string {
-		if ( $icon ) {
+	public function filter_attachment_image_html( $html, $attachment_id, $size, $icon, $attr ) {
+		$attachment_id = $this->normalize_attachment_id( $attachment_id );
+
+		if ( ! is_string( $html ) || '' === $html || $icon || $attachment_id < 1 ) {
 			return $html;
 		}
 
@@ -143,12 +148,18 @@ final class Renderer {
 	/**
 	 * Filter content image HTML.
 	 *
-	 * @param string $html          Image HTML.
-	 * @param string $context       Content context.
-	 * @param int    $attachment_id Attachment ID.
-	 * @return string
+	 * @param mixed $html          Image HTML.
+	 * @param mixed $context       Content context.
+	 * @param mixed $attachment_id Attachment ID.
+	 * @return mixed
 	 */
-	public function filter_content_image_html( string $html, string $context, int $attachment_id ): string {
+	public function filter_content_image_html( $html, $context, $attachment_id ) {
+		if ( ! is_string( $html ) ) {
+			return $html;
+		}
+
+		$attachment_id = $this->normalize_attachment_id( $attachment_id );
+
 		if ( $attachment_id < 1 ) {
 			return $this->add_asset_target_html( $html );
 		}
@@ -321,11 +332,23 @@ final class Renderer {
 	/**
 	 * Enhance post-content fragments when the optional full-page buffer is absent.
 	 *
-	 * @param string $html Content HTML.
-	 * @return string
+	 * @param mixed $html Content HTML.
+	 * @return mixed
 	 */
-	public function filter_content_fragment( string $html ): string {
-		return $this->filter_final_html( $html, true );
+	public function filter_content_fragment( $html ) {
+		return is_string( $html ) ? $this->filter_final_html( $html, true ) : $html;
+	}
+
+	/**
+	 * Read an attachment ID from a hook argument that third parties may pass as anything.
+	 *
+	 * @param mixed $attachment_id Raw attachment ID.
+	 * @return int Positive ID, or 0 when the value is not a usable ID.
+	 */
+	private function normalize_attachment_id( $attachment_id ): int {
+		return is_int( $attachment_id ) || ( is_string( $attachment_id ) && ctype_digit( $attachment_id ) )
+			? max( 0, (int) $attachment_id )
+			: 0;
 	}
 
 	/**
