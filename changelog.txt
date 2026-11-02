@@ -1,3 +1,6 @@
+= 0.3.16 - 2026-11-02 =
+* Performance - While the visitor gap queue is full (50 qualified jobs or 256 jobs in total), the visitor observer samples 10% of anonymous visitors instead of all of them. Reports then only add confirmations to waiting jobs, and each one starts an uncached WordPress request. The rate is kept in a small autoloaded option, updated only when it changes, and returns to 100% once the queue drains. Trusted editor reports are not sampled.
+
 = 0.3.15 - 2026-11-02 =
 * Performance - The final-page image pass no longer builds the full HTML tree or queues edits across the whole page. One read-only tag scan finds each image and whether it sits inside a picture element, and each image tag is rewritten on its own. On a 1.2 MB product page with 132 images the pass dropped from 124 ms to 34 ms.
 * Performance - Preload alignment runs one tag scan instead of two, and is skipped when the page has no responsive image preload.
