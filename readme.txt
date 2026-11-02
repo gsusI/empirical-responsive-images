@@ -4,7 +4,7 @@ Tags: responsive images, image sizes, srcset, thumbnails, lcp
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.3.13
+Stable tag: 0.3.14
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -166,6 +166,11 @@ No. Only marked local images and a fixed list of sizes are accepted. Near matche
 Most standard WordPress hosts should work if uploads are writable, WordPress background tasks run normally, and the server can create the requested image format. If background tasks are disabled, queued work waits until the host runs them.
 
 == Changelog ==
+
+= 0.3.14 =
+* Fix a fatal error with themes that pass an unexpected image ID to WordPress image functions.
+* Stop damaged image or layout data saved in the database from breaking pages, regeneration or background work.
+* Cap unusually large numbers in visitor reports so PHP 8.5 no longer logs warnings.
 
 = 0.3.13 =
 * New plugin name, icon, banner, and screenshots, plus a clearer description of how the plugin works on its own.

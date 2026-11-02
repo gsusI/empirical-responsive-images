@@ -1,3 +1,8 @@
+= 0.3.14 - 2026-11-02 =
+* Fixed - Themes that pass a non-numeric attachment ID or a null icon flag to wp_get_attachment_image() no longer cause a fatal TypeError. Every hook callback now accepts the loose values themes and other plugins send, and passes back anything it cannot use unchanged.
+* Fixed - Corrupted observation data, sidecar records or attachment metadata no longer cause fatal errors on the visitor report endpoint, the admin observer, regeneration or background jobs. Damaged entries are dropped and rebuilt.
+* Fixed - Out-of-range numbers in visitor reports and the regenerate page number are capped, so PHP 8.5 no longer logs warnings or throws on them.
+
 = 0.3.13 - 2026-10-31 =
 * Changed - New plugin name, icon, banner, screenshots and WordPress.org description. The listing now explains that the plugin runs automatically after activation.
 * Fixed - The featured-image lookup no longer sets a redundant suppress_filters argument, which Plugin Check rejects.
