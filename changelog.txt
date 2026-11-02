@@ -1,3 +1,8 @@
+= 0.3.15 - 2026-11-02 =
+* Performance - The final-page image pass no longer builds the full HTML tree or queues edits across the whole page. One read-only tag scan finds each image and whether it sits inside a picture element, and each image tag is rewritten on its own. On a 1.2 MB product page with 132 images the pass dropped from 124 ms to 34 ms.
+* Performance - Preload alignment runs one tag scan instead of two, and is skipped when the page has no responsive image preload.
+* Fixed - Image tags with a ">" inside an attribute value (for example in alt text) were skipped and kept the internal data-empirical-responsive-images-rewrite-id attribute. They are now processed like other images.
+
 = 0.3.14 - 2026-11-02 =
 * Fixed - Themes that pass a non-numeric attachment ID or a null icon flag to wp_get_attachment_image() no longer cause a fatal TypeError. Every hook callback now accepts the loose values themes and other plugins send, and passes back anything it cannot use unchanged.
 * Fixed - Corrupted observation data, sidecar records or attachment metadata no longer cause fatal errors on the visitor report endpoint, the admin observer, regeneration or background jobs. Damaged entries are dropped and rebuilt.
