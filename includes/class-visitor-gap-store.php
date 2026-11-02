@@ -17,6 +17,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 final class Visitor_Gap_Store {
 	public const OPTION_NAME             = 'empirical_responsive_images_visitor_gap_hints';
 	public const WRITE_LOCK_OPTION       = 'empirical_responsive_images_visitor_gap_hints_lock';
+	public const SAMPLE_RATE_OPTION      = 'empirical_responsive_images_visitor_gap_sample_rate';
 	public const MAX_GAPS_PER_REPORT     = 12;
 	public const MAX_WIDTHS_PER_REPORT   = self::MAX_GAPS_PER_REPORT;
 	public const BUCKET_PROTOCOL_VERSION = 3;
@@ -43,6 +44,7 @@ final class Visitor_Gap_Store {
 	private const CACHE_PURGE_INTERVAL           = 900;
 	private const MAX_PENDING_PURGE_URLS         = 100;
 	private const TRUSTED_CONFIRMATIONS_REQUIRED = 1;
+	private const SATURATED_SAMPLE_RATE          = 0.1;
 
 	/**
 	 * Local asset manager.
@@ -100,6 +102,45 @@ final class Visitor_Gap_Store {
 
 		if ( ! is_array( $current ) || self::DATA_VERSION !== absint( $current['version'] ?? 0 ) ) {
 			update_option( self::OPTION_NAME, $this->empty_data(), false );
+			$this->sync_observer_sample_rate( $this->empty_data() );
+		}
+	}
+
+	/**
+	 * Share of anonymous visitors whose browsers report image gaps.
+	 *
+	 * @return float
+	 */
+	public static function observer_sample_rate(): float {
+		$rate = get_option( self::SAMPLE_RATE_OPTION, 1 );
+
+		return is_numeric( $rate ) ? max( 0.0, min( 1.0, (float) $rate ) ) : 1.0;
+	}
+
+	/**
+	 * Sample fewer visitors while the queue is full.
+	 *
+	 * A full queue cannot take new work, so reports only add confirmations to
+	 * jobs that are already waiting, and each one boots WordPress uncached.
+	 * A small sample keeps confirmations coming until the queue drains.
+	 *
+	 * @param array $data Complete store data.
+	 * @return void
+	 */
+	private function sync_observer_sample_rate( array $data ): void {
+		$jobs      = is_array( $data['jobs'] ?? null ) ? $data['jobs'] : array();
+		$qualified = 0;
+
+		foreach ( $jobs as $job ) {
+			if ( is_array( $job ) && in_array( $job['status'] ?? '', array( 'queued', 'processing', 'retry_wait' ), true ) ) {
+				++$qualified;
+			}
+		}
+
+		$rate = ( $qualified >= self::MAX_QUALIFIED_JOBS || count( $jobs ) >= self::MAX_JOBS ) ? self::SATURATED_SAMPLE_RATE : 1.0;
+
+		if ( abs( self::observer_sample_rate() - $rate ) > 0.0001 ) {
+			update_option( self::SAMPLE_RATE_OPTION, $rate, true );
 		}
 	}
 
@@ -1745,7 +1786,13 @@ final class Visitor_Gap_Store {
 
 		update_option( self::OPTION_NAME, $data, false );
 
-		return get_option( self::OPTION_NAME, null ) === $data;
+		if ( get_option( self::OPTION_NAME, null ) !== $data ) {
+			return false;
+		}
+
+		$this->sync_observer_sample_rate( $data );
+
+		return true;
 	}
 
 	/**

@@ -25,6 +25,7 @@ delete_option( 'empirical_responsive_images_version' );
 delete_option( 'empirical_responsive_images_observations_lock' );
 delete_option( 'empirical_responsive_images_visitor_gap_hints' );
 delete_option( 'empirical_responsive_images_visitor_gap_hints_lock' );
+delete_option( 'empirical_responsive_images_visitor_gap_sample_rate' );
 
 $empirical_responsive_images_uploads    = wp_get_upload_dir();
 $empirical_responsive_images_target_dir = trailingslashit( $empirical_responsive_images_uploads['basedir'] ) . 'empirical-responsive-images';

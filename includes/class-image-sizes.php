@@ -161,7 +161,7 @@ final class Image_Sizes {
 			array(
 				'endpoint'          => esc_url_raw( rest_url( 'empirical-responsive-images/v1/visitor-gap-hints' ) ),
 				'token'             => Visitor_Gap_Store::report_token(),
-				'sampleRate'        => 1,
+				'sampleRate'        => '' !== $confirmation_nonce ? 1 : Visitor_Gap_Store::observer_sample_rate(),
 				'minRenderedWidth'  => $this->settings->get_int( 'min_rendered_width' ),
 				'maximumWidth'      => $this->settings->get_int( 'max_registered_width' ),
 				'bucketVersion'     => Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION,
@@ -204,7 +204,7 @@ final class Image_Sizes {
 				'data-pagespeed-no-defer' => '1',
 				'data-empirical-responsive-images-visitor-gap-endpoint' => esc_url_raw( rest_url( 'empirical-responsive-images/v1/visitor-gap-hints' ) ),
 				'data-empirical-responsive-images-visitor-gap-token' => Visitor_Gap_Store::report_token(),
-				'data-empirical-responsive-images-visitor-gap-sample-rate' => '1',
+				'data-empirical-responsive-images-visitor-gap-sample-rate' => '' !== $confirmation_nonce ? '1' : (string) Visitor_Gap_Store::observer_sample_rate(),
 				'data-empirical-responsive-images-visitor-gap-min-width' => (string) $this->settings->get_int( 'min_rendered_width' ),
 				'data-empirical-responsive-images-visitor-gap-max-width' => (string) $this->settings->get_int( 'max_registered_width' ),
 				'data-empirical-responsive-images-visitor-gap-bucket-version' => (string) Visitor_Gap_Store::BUCKET_PROTOCOL_VERSION,

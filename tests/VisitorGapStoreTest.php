@@ -659,6 +659,36 @@ final class VisitorGapStoreTest extends TestCase {
 		self::assertCount( 256, $store->get_data()['jobs'] );
 	}
 
+	public function test_observer_samples_fewer_visitors_while_the_qualified_queue_is_full(): void {
+		$store = new Visitor_Gap_Store( $this->asset_manager() );
+		$data  = $store->empty_data();
+
+		for ( $index = 0; $index < 50; ++$index ) {
+			$job_id = sprintf( 'queued-%03d', $index );
+			$data['jobs'][ $job_id ] = array(
+				'id'            => $job_id,
+				'target_key'    => 'target-' . $index,
+				'width'         => 704,
+				'status'        => 'queued',
+				'confirmations' => 3,
+				'first_seen'    => time() - 60,
+			);
+		}
+
+		$GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ] = $data;
+		self::assertSame( 1.0, Visitor_Gap_Store::observer_sample_rate() );
+
+		$result = $store->record_gaps( array( $this->gap( $this->attachment_target(), 641 ) ), new Settings() );
+
+		self::assertSame( 1, $result['accepted'] );
+		self::assertSame( 0.1, Visitor_Gap_Store::observer_sample_rate() );
+
+		$GLOBALS['eri_test_options'][ Visitor_Gap_Store::OPTION_NAME ] = $store->empty_data();
+		$store->record_gaps( array( $this->gap( $this->attachment_target(), 641 ) ), new Settings() );
+
+		self::assertSame( 1.0, Visitor_Gap_Store::observer_sample_rate(), 'A drained queue samples every visitor again.' );
+	}
+
 	public function test_only_unqualified_stale_evidence_expires(): void {
 		$store = new Visitor_Gap_Store( $this->asset_manager() );
 		$store->record_gaps( array( $this->gap( $this->attachment_target(), 704 ) ), new Settings() );
