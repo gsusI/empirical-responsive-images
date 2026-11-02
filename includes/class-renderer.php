@@ -170,95 +170,113 @@ final class Renderer {
 	/**
 	 * Enhance local asset image tags in final HTML.
 	 *
-	 * @param mixed $html     Final HTML.
-	 * @param bool  $fragment Whether input is an HTML fragment.
+	 * One read-only tag scan finds each IMG and whether it sits inside a PICTURE;
+	 * each tag is then rewritten on its own and spliced back in by position. The
+	 * full HTML tree builder, and edits queued on the whole page, each cost more
+	 * than the rest of this filter on large pages.
+	 *
+	 * @param mixed $html Final HTML or a content fragment; the tag scan treats both alike.
 	 * @return mixed
 	 */
-	public function filter_final_html( $html, bool $fragment = false ) {
-		if ( ! is_string( $html ) || '' === $html || false === stripos( $html, '<img' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
+	public function filter_final_html( $html ) {
+		if ( ! is_string( $html ) || '' === $html || false === stripos( $html, '<img' ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
 			return $html;
 		}
 
 		try {
-			$processor = $fragment
-				? \WP_HTML_Processor::create_fragment( $html )
-				: \WP_HTML_Processor::create_full_parser( $html );
+			$images        = array();
+			$picture_depth = 0;
+			$scanner       = new HTML_Tag_Scanner( $html );
 
-			if ( null === $processor ) {
-				return $html;
-			}
+			while ( $scanner->next_tag( array( 'tag_closers' => 'visit' ) ) ) {
+				$tag = $scanner->get_tag();
 
-			$rewrite_modes = array();
-			$rewrite_id    = 0;
-
-			while ( $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
-				// Keep browser-first values when upstream filters append duplicate attributes.
-				// Optimizers may otherwise keep the last sizes/srcset and undo authored layout.
-				foreach ( array( 'srcset', 'sizes', 'width', 'height' ) as $attribute ) {
-					$value = $processor->get_attribute( $attribute );
-
-					if ( null !== $value ) {
-						$processor->remove_attribute( $attribute );
-						$processor->set_attribute( $attribute, $value );
-					}
+				if ( 'PICTURE' === $tag ) {
+					$picture_depth = $scanner->is_tag_closer() ? max( 0, $picture_depth - 1 ) : $picture_depth + 1;
+					continue;
 				}
 
-				$marker                   = (string) ++$rewrite_id;
-				$breadcrumbs              = $processor->get_breadcrumbs();
-				$rewrite_modes[ $marker ] = in_array( 'PICTURE', $breadcrumbs, true ) ? 'picture' : 'standalone';
-				$processor->set_attribute( 'data-empirical-responsive-images-rewrite-id', $marker );
+				if ( 'IMG' !== $tag || $scanner->is_tag_closer() ) {
+					continue;
+				}
+
+				$span = $scanner->current_tag_span();
+
+				if ( null !== $span ) {
+					$images[] = array( $span[0], $span[1], $picture_depth > 0 );
+				}
 			}
 		} catch ( \Throwable $error ) {
 			return $html;
 		}
 
-		if ( empty( $rewrite_modes ) ) {
+		if ( empty( $images ) ) {
 			return $html;
 		}
 
-		$tagged = $processor->get_updated_html();
-		$output = preg_replace_callback(
-			'/<img\b(?=[^>]*\bdata-empirical-responsive-images-rewrite-id="[0-9]+")[^>]*>/i',
-			function ( array $matches ) use ( $rewrite_modes ): string {
-				if ( ! preg_match( '/\bdata-empirical-responsive-images-rewrite-id="([0-9]+)"/', $matches[0], $marker_match ) ) {
-					return $matches[0];
+		$output = '';
+		$offset = 0;
+
+		foreach ( $images as list( $start, $length, $in_picture ) ) {
+			$output .= substr( $html, $offset, $start - $offset ) . $this->rewrite_final_image_html( substr( $html, $start, $length ), $in_picture );
+			$offset  = $start + $length;
+		}
+
+		return $this->filter_image_preloads( $output . substr( $html, $offset ) );
+	}
+
+	/**
+	 * Rewrite one image tag found in final HTML.
+	 *
+	 * @param string $html       Image tag.
+	 * @param bool   $in_picture Whether the tag sits inside a PICTURE element.
+	 * @return string
+	 */
+	private function rewrite_final_image_html( string $html, bool $in_picture ): string {
+		// Keep browser-first values when upstream filters append duplicate attributes.
+		// Optimizers may otherwise keep the last sizes/srcset and undo authored layout.
+		$processor = new \WP_HTML_Tag_Processor( $html );
+
+		if ( $processor->next_tag() ) {
+			foreach ( array( 'srcset', 'sizes', 'width', 'height' ) as $attribute ) {
+				$value = $processor->get_attribute( $attribute );
+
+				if ( null !== $value ) {
+					$processor->remove_attribute( $attribute );
+					$processor->set_attribute( $attribute, $value );
 				}
+			}
 
-				$mode = $rewrite_modes[ $marker_match[1] ] ?? '';
-				$html = $this->remove_rewrite_marker_html( $matches[0] );
+			$html = $processor->get_updated_html();
+		}
 
-				if ( false !== strpos( $html, 'data-empirical-responsive-images-picture-child' ) ) {
-					return $html;
-				}
+		if ( false !== strpos( $html, 'data-empirical-responsive-images-picture-child' ) ) {
+			return $html;
+		}
 
-				$attachment_id = $this->attachment_id_from_html( $html );
+		$attachment_id = $this->attachment_id_from_html( $html );
 
-				if ( 'picture' === $mode ) {
-					if ( $attachment_id > 0 ) {
-						return $this->remove_learning_attributes_html( $html );
-					}
+		if ( $in_picture ) {
+			if ( $attachment_id > 0 ) {
+				return $this->remove_learning_attributes_html( $html );
+			}
 
-					$image = $this->settings->is_asset_processing_enabled()
-						? $this->enhance_asset_image_html( $html, false )
-						: $html;
+			$image = $this->settings->is_asset_processing_enabled()
+				? $this->enhance_asset_image_html( $html, false )
+				: $html;
 
-					return $this->remove_learning_attributes_html( $image );
-				}
+			return $this->remove_learning_attributes_html( $image );
+		}
 
-				if ( $attachment_id > 0 ) {
-					$image = $this->add_attachment_target_html( $html, $attachment_id, true );
+		if ( $attachment_id > 0 ) {
+			$image = $this->add_attachment_target_html( $html, $attachment_id, true );
 
-					return $this->wrap_image_html( $image, $attachment_id );
-				}
+			return $this->wrap_image_html( $image, $attachment_id );
+		}
 
-				return $this->settings->is_asset_processing_enabled()
-					? $this->enhance_asset_image_html( $html )
-					: $html;
-			},
-			$tagged
-		);
-
-		return is_string( $output ) ? $this->filter_image_preloads( $output ) : $html;
+		return $this->settings->is_asset_processing_enabled()
+			? $this->enhance_asset_image_html( $html )
+			: $html;
 	}
 
 	/**
@@ -268,32 +286,66 @@ final class Renderer {
 	 * @return mixed
 	 */
 	public function filter_image_preloads( $html ) {
-		if ( ! is_string( $html ) || false === stripos( $html, '<link' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
+		// Only a responsive preload (imagesrcset) can change, and only to match a priority image.
+		if ( ! is_string( $html )
+			|| false === stripos( $html, '<link' )
+			|| false === stripos( $html, 'imagesrcset' )
+			|| false === stripos( $html, 'fetchpriority' )
+			|| ! class_exists( 'WP_HTML_Tag_Processor' )
+		) {
 			return $html;
 		}
 
-		$processor = \WP_HTML_Processor::create_fragment( $html );
-		if ( null === $processor ) {
-			return $html;
-		}
+		$scanner       = new HTML_Tag_Scanner( $html );
+		$images        = array();
+		$links         = array();
+		$picture_depth = 0;
+		while ( $scanner->next_tag( array( 'tag_closers' => 'visit' ) ) ) {
+			$tag = $scanner->get_tag();
 
-		$images = array();
-		while ( $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
-			if ( 'high' !== strtolower( (string) $processor->get_attribute( 'fetchpriority' ) ) ) {
+			if ( 'PICTURE' === $tag ) {
+				$picture_depth = $scanner->is_tag_closer() ? max( 0, $picture_depth - 1 ) : $picture_depth + 1;
 				continue;
 			}
 
-			$src = (string) $processor->get_attribute( 'src' );
+			if ( $scanner->is_tag_closer() ) {
+				continue;
+			}
+
+			if ( 'LINK' === $tag ) {
+				if ( 'preload' !== strtolower( (string) $scanner->get_attribute( 'rel' ) )
+					|| 'image' !== strtolower( (string) $scanner->get_attribute( 'as' ) )
+					|| '' === (string) $scanner->get_attribute( 'imagesrcset' )
+					|| null !== $scanner->get_attribute( 'media' )
+					|| null !== $scanner->get_attribute( 'type' )
+					|| null !== $scanner->get_attribute( 'crossorigin' )
+				) {
+					continue;
+				}
+
+				$span = $scanner->current_tag_span();
+				if ( null !== $span ) {
+					$links[] = array( $span[0], $span[1], (string) $scanner->get_attribute( 'href' ), trim( (string) $scanner->get_attribute( 'imagesizes' ) ) );
+				}
+
+				continue;
+			}
+
+			if ( 'IMG' !== $tag || 'high' !== strtolower( (string) $scanner->get_attribute( 'fetchpriority' ) ) ) {
+				continue;
+			}
+
+			$src = (string) $scanner->get_attribute( 'src' );
 			if ( '' === $src ) {
 				continue;
 			}
 
 			$attributes = array(
-				'srcset' => (string) $processor->get_attribute( 'srcset' ),
-				'sizes'  => trim( (string) $processor->get_attribute( 'sizes' ) ),
+				'srcset' => (string) $scanner->get_attribute( 'srcset' ),
+				'sizes'  => trim( (string) $scanner->get_attribute( 'sizes' ) ),
 			);
-			$excluded   = in_array( 'PICTURE', $processor->get_breadcrumbs(), true )
-				|| null !== $processor->get_attribute( 'crossorigin' )
+			$excluded   = $picture_depth > 0
+				|| null !== $scanner->get_attribute( 'crossorigin' )
 				|| '' === $attributes['srcset'] || '' === $attributes['sizes'];
 			if ( $excluded || ( array_key_exists( $src, $images ) && $images[ $src ] !== $attributes ) ) {
 				$images[ $src ] = null;
@@ -302,31 +354,25 @@ final class Renderer {
 			}
 		}
 
-		if ( empty( $images ) ) {
-			return $html;
-		}
-
-		$links = new \WP_HTML_Tag_Processor( $html );
-		while ( $links->next_tag( array( 'tag_name' => 'LINK' ) ) ) {
-			if ( 'preload' !== strtolower( (string) $links->get_attribute( 'rel' ) ) || 'image' !== strtolower( (string) $links->get_attribute( 'as' ) ) ) {
+		$output = '';
+		$offset = 0;
+		foreach ( $links as list( $start, $length, $href, $sizes ) ) {
+			$image = $images[ $href ] ?? null;
+			if ( ! is_array( $image ) || $sizes !== $image['sizes'] ) {
 				continue;
 			}
 
-			$image = $images[ (string) $links->get_attribute( 'href' ) ] ?? null;
-			if ( ! is_array( $image )
-				|| '' === (string) $links->get_attribute( 'imagesrcset' )
-				|| trim( (string) $links->get_attribute( 'imagesizes' ) ) !== $image['sizes']
-				|| null !== $links->get_attribute( 'media' )
-				|| null !== $links->get_attribute( 'type' )
-				|| null !== $links->get_attribute( 'crossorigin' )
-			) {
+			$link = new \WP_HTML_Tag_Processor( substr( $html, $start, $length ) );
+			if ( ! $link->next_tag() ) {
 				continue;
 			}
 
-			$links->set_attribute( 'imagesrcset', $image['srcset'] );
+			$link->set_attribute( 'imagesrcset', $image['srcset'] );
+			$output .= substr( $html, $offset, $start - $offset ) . $link->get_updated_html();
+			$offset  = $start + $length;
 		}
 
-		return $links->get_updated_html();
+		return 0 === $offset ? $html : $output . substr( $html, $offset );
 	}
 
 	/**
@@ -336,7 +382,7 @@ final class Renderer {
 	 * @return mixed
 	 */
 	public function filter_content_fragment( $html ) {
-		return is_string( $html ) ? $this->filter_final_html( $html, true ) : $html;
+		return is_string( $html ) ? $this->filter_final_html( $html ) : $html;
 	}
 
 	/**
@@ -702,28 +748,6 @@ final class Renderer {
 		}
 
 		$processor->set_attribute( 'data-empirical-responsive-images-picture-child', '1' );
-
-		return $processor->get_updated_html();
-	}
-
-	/**
-	 * Remove the request-local safe-rewrite marker.
-	 *
-	 * @param string $html Image HTML.
-	 * @return string
-	 */
-	private function remove_rewrite_marker_html( string $html ): string {
-		if ( ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
-			return $html;
-		}
-
-		$processor = new \WP_HTML_Tag_Processor( $html );
-
-		if ( ! $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
-			return $html;
-		}
-
-		$processor->remove_attribute( 'data-empirical-responsive-images-rewrite-id' );
 
 		return $processor->get_updated_html();
 	}
