@@ -385,7 +385,7 @@ final class Visitor_Gap_Target {
 			$source_by_relative[ (string) ( $source['relative'] ?? '' ) ] = $source;
 		}
 
-		$directory = dirname( (string) ( $metadata['file'] ?? '' ) );
+		$directory = dirname( is_string( $metadata['file'] ?? null ) ? $metadata['file'] : '' );
 		$directory = '.' === $directory ? '' : trailingslashit( $directory );
 		$widths    = array();
 
@@ -754,7 +754,7 @@ final class Visitor_Gap_Target {
 		$sizes         = isset( $metadata['sizes'] ) && is_array( $metadata['sizes'] ) ? $metadata['sizes'] : array();
 
 		foreach ( $sizes as $size ) {
-			if ( ! is_array( $size ) ) {
+			if ( ! is_array( $size ) || ! is_string( $size['file'] ?? '' ) || ! is_string( $metadata['file'] ?? '' ) ) {
 				continue;
 			}
 
@@ -819,8 +819,9 @@ final class Visitor_Gap_Target {
 
 				$applicable = true;
 				$sidecar    = $format_files[ $source['relative'] ][ $format ] ?? '';
+				$sidecar    = is_string( $sidecar ) ? $sidecar : '';
 
-				$sidecar_path = is_string( $sidecar ) ? $base . ltrim( wp_normalize_path( $sidecar ), '/' ) : '';
+				$sidecar_path = $base . ltrim( wp_normalize_path( $sidecar ), '/' );
 
 				if ( '' === $sidecar || ! Format_Generator::is_plugin_sidecar_path( $sidecar ) || ! self::is_current_file( (string) $source['path'], $sidecar_path ) ) {
 					continue;

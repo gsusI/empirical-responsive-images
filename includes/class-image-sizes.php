@@ -178,12 +178,16 @@ final class Image_Sizes {
 	/**
 	 * Add cache/optimizer exclusion attributes and fallback config to observer script.
 	 *
-	 * @param string $tag    Script tag.
-	 * @param string $handle Script handle.
-	 * @param string $src    Script source.
-	 * @return string
+	 * @param mixed $tag    Script tag.
+	 * @param mixed $handle Script handle.
+	 * @param mixed $src    Script source.
+	 * @return mixed
 	 */
-	public function filter_observer_script_tag( string $tag, string $handle, string $src ): string {
+	public function filter_observer_script_tag( $tag, $handle, $src ) {
+		if ( ! is_string( $tag ) ) {
+			return $tag;
+		}
+
 		if ( 'empirical-responsive-images-visitor-gap-observer' === $handle ) {
 			if ( ! $this->settings->is_visitor_gap_learning_enabled() ) {
 				return $tag;
@@ -257,12 +261,18 @@ final class Image_Sizes {
 	/**
 	 * Add useful defaults to WordPress-generated image attributes.
 	 *
-	 * @param array    $attr       Attributes.
-	 * @param \WP_Post $attachment Attachment post.
-	 * @param mixed    $size       Requested size.
-	 * @return array
+	 * Plugins also apply this filter by hand, sometimes with an ID instead of a post.
+	 *
+	 * @param mixed $attr       Attributes.
+	 * @param mixed $attachment Attachment post.
+	 * @param mixed $size       Requested size.
+	 * @return mixed
 	 */
-	public function filter_attachment_attributes( array $attr, \WP_Post $attachment, $size ): array {
+	public function filter_attachment_attributes( $attr, $attachment, $size ) {
+		if ( ! is_array( $attr ) ) {
+			return $attr;
+		}
+
 		$classes = isset( $attr['class'] ) ? preg_split( '/\s+/', (string) $attr['class'] ) : array();
 		$classes = is_array( $classes ) ? array_filter( $classes ) : array();
 

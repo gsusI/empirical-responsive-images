@@ -95,12 +95,12 @@ final class Renderer {
 	 *
 	 * It must run before visitors interact with galleries that swap images.
 	 *
-	 * @param array  $attributes Inline script attributes.
-	 * @param string $javascript Inline script contents.
-	 * @return array
+	 * @param mixed $attributes Inline script attributes.
+	 * @param mixed $javascript Inline script contents.
+	 * @return mixed
 	 */
-	public function filter_picture_source_sync_attributes( array $attributes, string $javascript ): array {
-		if ( self::PICTURE_SOURCE_SYNC_HANDLE . '-js-after' !== ( $attributes['id'] ?? '' ) ) {
+	public function filter_picture_source_sync_attributes( $attributes, $javascript ) {
+		if ( ! is_array( $attributes ) || self::PICTURE_SOURCE_SYNC_HANDLE . '-js-after' !== ( $attributes['id'] ?? '' ) ) {
 			return $attributes;
 		}
 
@@ -170,12 +170,12 @@ final class Renderer {
 	/**
 	 * Enhance local asset image tags in final HTML.
 	 *
-	 * @param string $html     Final HTML.
-	 * @param bool   $fragment Whether input is an HTML fragment.
-	 * @return string
+	 * @param mixed $html     Final HTML.
+	 * @param bool  $fragment Whether input is an HTML fragment.
+	 * @return mixed
 	 */
-	public function filter_final_html( string $html, bool $fragment = false ): string {
-		if ( '' === $html || false === stripos( $html, '<img' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
+	public function filter_final_html( $html, bool $fragment = false ) {
+		if ( ! is_string( $html ) || '' === $html || false === stripos( $html, '<img' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
 			return $html;
 		}
 
@@ -264,11 +264,11 @@ final class Renderer {
 	/**
 	 * Keep stale responsive preloads aligned with their unambiguous priority image.
 	 *
-	 * @param string $html Rendered HTML, including any cache-plugin preload hints.
-	 * @return string
+	 * @param mixed $html Rendered HTML, including any cache-plugin preload hints.
+	 * @return mixed
 	 */
-	public function filter_image_preloads( string $html ): string {
-		if ( false === stripos( $html, '<link' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
+	public function filter_image_preloads( $html ) {
+		if ( ! is_string( $html ) || false === stripos( $html, '<link' ) || ! class_exists( 'WP_HTML_Processor' ) ) {
 			return $html;
 		}
 

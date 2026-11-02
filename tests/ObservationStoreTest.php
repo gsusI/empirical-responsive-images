@@ -253,6 +253,42 @@ final class ObservationStoreTest extends TestCase {
 		self::assertArrayHasKey( $key, $store->get_data()['assets'] );
 	}
 
+	public function test_corrupted_stored_observations_do_not_break_recording(): void {
+		$store = new Observation_Store();
+		$store->record_payload( $this->payload(), new Settings() );
+
+		$data = $GLOBALS['eri_test_options'][ Observation_Store::OPTION_NAME ];
+		foreach ( array_keys( $data['sizes'] ) as $key ) {
+			$data['sizes'][ $key ]['dprs']      = 'broken';
+			$data['sizes'][ $key ]['viewports'] = 7;
+		}
+		$data['sizes']['w1']              = 'broken';
+		$data['pages']['/junk/']          = 'broken';
+		$data['assets']['junk']           = 'broken';
+		$data['attachment_slots']['9']    = 'broken';
+		$data['totals']                   = 'broken';
+		$GLOBALS['eri_test_options'][ Observation_Store::OPTION_NAME ] = $data;
+
+		$result = $store->record_payload( $this->payload(), new Settings() );
+
+		self::assertSame( 1, $result['accepted'] );
+		$data = $store->get_data();
+		self::assertArrayNotHasKey( 'w1', $data['sizes'] );
+		self::assertArrayNotHasKey( 'junk', $data['assets'] );
+		self::assertSame( 1, $data['totals']['payloads'] );
+	}
+
+	public function test_overflowing_client_metrics_are_clamped(): void {
+		$payload                                   = $this->payload();
+		$payload['images'][0]['rendered_width']    = 1e300;
+		$payload['images'][0]['target_width']      = 1e300;
+		$payload['images'][0]['target_height']     = 1e300;
+
+		$result = ( new Observation_Store() )->record_payload( $payload, new Settings() );
+
+		self::assertSame( 1, $result['accepted'] );
+	}
+
 	private function payload(): array {
 		return array(
 			'page_url' => 'https://example.test/products/example/?secret=value',

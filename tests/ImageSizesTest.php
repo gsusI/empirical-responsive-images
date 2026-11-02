@@ -199,4 +199,19 @@ final class ImageSizesTest extends TestCase {
 			$GLOBALS['eri_test_localized_scripts']['empirical-responsive-images-visitor-gap-observer']['data']['confirmationNonce']
 		);
 	}
+
+	public function test_hook_callbacks_pass_through_values_other_plugins_broke(): void {
+		$image_sizes = new Image_Sizes( new Settings(), new Observation_Store() );
+
+		self::assertNull( $image_sizes->filter_observer_script_tag( null, 'empirical-responsive-images-observer', false ) );
+		self::assertSame( '<script></script>', $image_sizes->filter_observer_script_tag( '<script></script>', null, false ) );
+		self::assertSame( 'alt', $image_sizes->filter_attachment_attributes( 'alt', 7, 'full' ) );
+		self::assertSame(
+			array(
+				'class'    => 'empirical-responsive-image',
+				'decoding' => 'async',
+			),
+			$image_sizes->filter_attachment_attributes( array(), 7, 'full' )
+		);
+	}
 }

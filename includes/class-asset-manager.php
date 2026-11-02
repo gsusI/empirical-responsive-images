@@ -202,7 +202,7 @@ final class Asset_Manager {
 	 * @return string
 	 */
 	public function normalize_url( string $url ): string {
-		$url = html_entity_decode( trim( $url ), ENT_QUOTES, get_bloginfo( 'charset' ) );
+		$url = html_entity_decode( trim( $url ), ENT_QUOTES, 'UTF-8' );
 
 		if ( '' === $url || preg_match( '/^(data|blob|javascript):/i', $url ) ) {
 			return '';

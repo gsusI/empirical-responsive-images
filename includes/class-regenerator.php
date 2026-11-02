@@ -69,8 +69,8 @@ final class Regenerator {
 	public function regenerate_batch( int $page, int $per_page, bool $force = false ): array {
 		require_once ABSPATH . 'wp-admin/includes/image.php';
 
-		$page             = max( 1, $page );
 		$per_page         = max( 1, min( 25, $per_page ) );
+		$page             = max( 1, min( $page, intdiv( PHP_INT_MAX, $per_page ) ) );
 		$attachment_total = $this->count_image_attachments();
 		$assets           = $this->store->get_asset_candidates( $this->settings );
 		$asset_total      = count( $assets );

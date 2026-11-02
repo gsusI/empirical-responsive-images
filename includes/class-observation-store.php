@@ -20,6 +20,7 @@ final class Observation_Store {
 	private const WRITE_LOCK_TTL             = 15;
 	private const MAX_AUTOMATIC_ASSET_WIDTHS = 38;
 	private const MAX_SLOT_WIDTHS_PER_TARGET = 40;
+	private const MAX_METRIC                 = 100000.0;
 
 	/**
 	 * Token owned by the current request's write lock.
@@ -89,20 +90,12 @@ final class Observation_Store {
 
 		$data = wp_parse_args( $data, $this->empty_data() );
 
-		if ( ! is_array( $data['pages'] ) ) {
-			$data['pages'] = array();
+		foreach ( array( 'pages', 'sizes', 'assets', 'attachment_slots' ) as $map ) {
+			$data[ $map ] = is_array( $data[ $map ] ) ? array_filter( $data[ $map ], 'is_array' ) : array();
 		}
 
-		if ( ! is_array( $data['sizes'] ) ) {
-			$data['sizes'] = array();
-		}
-
-		if ( ! is_array( $data['assets'] ) ) {
-			$data['assets'] = array();
-		}
-
-		if ( ! is_array( $data['attachment_slots'] ) ) {
-			$data['attachment_slots'] = array();
+		if ( ! is_array( $data['totals'] ) ) {
+			$data['totals'] = array();
 		}
 
 		return $data;
@@ -251,7 +244,7 @@ final class Observation_Store {
 		}
 
 		foreach ( $data['assets'] as $key => $entry ) {
-			if ( ! is_array( $entry ) || empty( $entry['url'] ) || empty( $entry['target_widths'] ) || ! is_array( $entry['target_widths'] ) ) {
+			if ( ! is_array( $entry ) || empty( $entry['url'] ) || ! is_string( $entry['url'] ) || empty( $entry['target_widths'] ) || ! is_array( $entry['target_widths'] ) ) {
 				continue;
 			}
 
@@ -596,10 +589,10 @@ final class Observation_Store {
 	/**
 	 * Remove visitor-learned layout data when an attachment is deleted.
 	 *
-	 * @param int $attachment_id Attachment ID.
+	 * @param mixed $attachment_id Attachment ID.
 	 * @return void
 	 */
-	public function delete_attachment_slots( int $attachment_id ): void {
+	public function delete_attachment_slots( $attachment_id ): void {
 		$key = (string) absint( $attachment_id );
 
 		if ( '0' === $key || ! $this->acquire_write_lock() ) {
@@ -798,6 +791,10 @@ final class Observation_Store {
 			)
 		);
 
+		foreach ( array( 'target_widths', 'automatic_target_widths', 'slot_widths', 'pages' ) as $map ) {
+			$entry[ $map ] = is_array( $entry[ $map ] ) ? $entry[ $map ] : array();
+		}
+
 		$entry['url']           = esc_url_raw( (string) ( $observation['source_url'] ?? $entry['url'] ) );
 		$entry['count']         = absint( $entry['count'] ?? 0 ) + 1;
 		$entry['last_seen']     = $now;
@@ -838,6 +835,12 @@ final class Observation_Store {
 		$rendered_height = isset( $image['rendered_height'] ) && is_numeric( $image['rendered_height'] ) ? (float) $image['rendered_height'] : 0.0;
 		$target_width    = isset( $image['target_width'] ) && is_numeric( $image['target_width'] ) ? (float) $image['target_width'] : $rendered_width * $dpr;
 		$target_height   = isset( $image['target_height'] ) && is_numeric( $image['target_height'] ) ? (float) $image['target_height'] : $rendered_height * $dpr;
+
+		// Keep absurd client values castable to int; PHP 8.5 warns on out-of-range floats.
+		$rendered_width  = min( self::MAX_METRIC, $rendered_width );
+		$rendered_height = min( self::MAX_METRIC, $rendered_height );
+		$target_width    = min( self::MAX_METRIC, $target_width );
+		$target_height   = min( self::MAX_METRIC, $target_height );
 
 		if ( $rendered_width < $settings->get_int( 'min_rendered_width' ) || $target_width < 1 ) {
 			return array();
@@ -1160,12 +1163,13 @@ final class Observation_Store {
 	/**
 	 * Increment a count map and keep top entries.
 	 *
-	 * @param array  $map   Count map.
+	 * @param mixed  $map   Count map; anything else starts a fresh map.
 	 * @param string $key   Entry key.
 	 * @param int    $limit Entry limit.
 	 * @return array
 	 */
-	private function increment_limited_map( array $map, string $key, int $limit ): array {
+	private function increment_limited_map( $map, string $key, int $limit ): array {
+		$map = is_array( $map ) ? $map : array();
 		$key = sanitize_text_field( $key );
 
 		if ( '' === $key ) {

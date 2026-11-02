@@ -981,11 +981,12 @@ final class Visitor_Gap_Store {
 			return array();
 		}
 
-		$reported_width      = min( $maximum, max( 1, (int) ceil( $raw_width ) ) );
+		$reported_width      = max( 1, (int) ceil( min( (float) $maximum, $raw_width ) ) );
 		$protocol_version    = absint( $gap['_bucket_protocol_version'] ?? 0 );
 		$is_current_protocol = in_array( $protocol_version, array( 2, self::BUCKET_PROTOCOL_VERSION ), true );
 		$is_critical         = self::BUCKET_PROTOCOL_VERSION === $protocol_version && true === ( $gap['critical'] ?? false );
-		$hinted_native_width = $is_current_protocol ? absint( $gap['native_width'] ?? 0 ) : 0;
+		$raw_native_width    = $gap['native_width'] ?? 0;
+		$hinted_native_width = $is_current_protocol && is_numeric( $raw_native_width ) ? (int) min( (float) $maximum + 1, abs( (float) $raw_native_width ) ) : 0;
 		$native_width        = $is_current_protocol
 			? (
 				$hinted_native_width > 0
@@ -1124,7 +1125,7 @@ final class Visitor_Gap_Store {
 			return 0;
 		}
 
-		return min( $limit, (int) ( ceil( (float) $value / $step ) * $step ) );
+		return (int) min( (float) $limit, ceil( (float) $value / $step ) * $step );
 	}
 
 	/**

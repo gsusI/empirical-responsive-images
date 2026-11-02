@@ -524,8 +524,8 @@ final class Background_Optimizer {
 		) {
 			if ( ! Visitor_Gap_Target::has_exact_width( $target, $width, $this->asset_manager ) ) {
 				$size_name = Image_Sizes::name_for_width( $width );
-				$filter    = static function ( array $sizes ) use ( $size_name ): array {
-					if ( ! isset( $sizes[ $size_name ] ) ) {
+				$filter    = static function ( $sizes ) use ( $size_name ): array {
+					if ( ! is_array( $sizes ) || ! isset( $sizes[ $size_name ] ) ) {
 						return array();
 					}
 

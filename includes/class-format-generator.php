@@ -47,11 +47,13 @@ final class Format_Generator {
 	 * Generate alternates after core metadata generation.
 	 *
 	 * @param mixed $metadata      Attachment metadata.
-	 * @param int   $attachment_id Attachment ID.
+	 * @param mixed $attachment_id Attachment ID.
 	 * @return mixed
 	 */
-	public function filter_generate_attachment_metadata( $metadata, int $attachment_id ) {
-		if ( $this->metadata_filter_suspended || ! is_array( $metadata ) ) {
+	public function filter_generate_attachment_metadata( $metadata, $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+
+		if ( $this->metadata_filter_suspended || ! is_array( $metadata ) || $attachment_id < 1 ) {
 			return $metadata;
 		}
 
@@ -70,11 +72,13 @@ final class Format_Generator {
 	 * Remove plugin-owned sidecars no longer referenced by attachment metadata.
 	 *
 	 * @param mixed $metadata      New attachment metadata.
-	 * @param int   $attachment_id Attachment ID.
+	 * @param mixed $attachment_id Attachment ID.
 	 * @return mixed
 	 */
-	public function filter_update_attachment_metadata( $metadata, int $attachment_id ) {
-		if ( ! is_array( $metadata ) ) {
+	public function filter_update_attachment_metadata( $metadata, $attachment_id ) {
+		$attachment_id = absint( $attachment_id );
+
+		if ( ! is_array( $metadata ) || $attachment_id < 1 ) {
 			return $metadata;
 		}
 
@@ -90,10 +94,16 @@ final class Format_Generator {
 	/**
 	 * Delete every plugin-owned sidecar belonging to a deleted attachment.
 	 *
-	 * @param int $attachment_id Attachment ID.
+	 * @param mixed $attachment_id Attachment ID.
 	 * @return void
 	 */
-	public function delete_attachment_sidecars( int $attachment_id ): void {
+	public function delete_attachment_sidecars( $attachment_id ): void {
+		$attachment_id = absint( $attachment_id );
+
+		if ( $attachment_id < 1 ) {
+			return;
+		}
+
 		$metadata = wp_get_attachment_metadata( $attachment_id );
 
 		if ( is_array( $metadata ) ) {
@@ -334,7 +344,7 @@ final class Format_Generator {
 		}
 
 		$metadata[ self::METADATA_KEY ]['files'] = is_array( $metadata[ self::METADATA_KEY ]['files'] ?? null )
-			? $metadata[ self::METADATA_KEY ]['files']
+			? array_filter( $metadata[ self::METADATA_KEY ]['files'], 'is_array' )
 			: array();
 
 		if ( $prune_other_metadata ) {

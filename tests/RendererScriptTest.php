@@ -187,5 +187,8 @@ final class RendererScriptTest extends TestCase {
 		self::assertNull( $renderer->filter_content_image_html( null, 'the_content', 42 ) );
 		self::assertNull( $renderer->filter_content_fragment( null ) );
 		self::assertSame( '<p>Hi</p>', $renderer->filter_content_image_html( '<p>Hi</p>', null, 'abc' ) );
+		self::assertNull( $renderer->filter_final_html( null ) );
+		self::assertNull( $renderer->filter_image_preloads( null ) );
+		self::assertSame( 'id', $renderer->filter_picture_source_sync_attributes( 'id', null ) );
 	}
 }
