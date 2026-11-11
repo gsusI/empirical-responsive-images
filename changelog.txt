@@ -1,3 +1,11 @@
+= 0.3.17 - 2026-11-11 =
+* Fixed - Learned sizes hints are now kept per placement instead of per attachment. The signed visitor target carries a short context derived from the image's class list (ignoring wp-image-N and plugin classes), and layout evidence is stored under the attachment and that context. A photo used both as a large featured image and as a small card no longer gets the card's sizes value everywhere. Evidence recorded before this release has no context and is no longer used for sizes.
+* Fixed - Images cropped with object-fit: cover are measured by the width the crop needs (box height x intrinsic aspect ratio, at most four times the box), not the box width. Such reports carry a cover flag, may exceed the viewport by up to three times, and stop the plugin from adding sizes="auto" for that placement, because browsers resolve auto to the box width.
+* Fixed - A sizes hint learned only at viewports narrower than 1024px no longer extends its widest slot to every larger viewport. The image's original sizes value covers wider viewports until desktop layouts are learned.
+* Fixed - A format source now lists every candidate width or is left out. A partial srcset made the browser choose from that subset, so a 150px slot could get a 32px file. When a sanitizer such as Elementor's wp_kses drops the picture wrapper but keeps the image, the final HTML pass removes the stale picture-child marker and wraps the image again.
+* Fixed - Cache purges delete Elementor's cached element HTML when Elementor is active, so pages show new picture sources after regeneration. Generated CSS is left alone.
+* Performance - AVIF is encoded at quality 65 by default. At 82 it was barely smaller than the source JPEG; at 65 it matches the distortion of WebP at 82 and is 15-20% smaller than WebP on photo samples. Other formats keep 82, and the output quality filter still overrides both.
+
 = 0.3.16 - 2026-11-02 =
 * Performance - While the visitor gap queue is full (50 qualified jobs or 256 jobs in total), the visitor observer samples 10% of anonymous visitors instead of all of them. Reports then only add confirmations to waiting jobs, and each one starts an uncached WordPress request. The rate is kept in a small autoloaded option, updated only when it changes, and returns to 100% once the queue drains. Trusted editor reports are not sampled.
 
