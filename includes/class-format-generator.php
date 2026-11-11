@@ -44,6 +44,19 @@ final class Format_Generator {
 	}
 
 	/**
+	 * Default encoder quality for an output format or file extension.
+	 *
+	 * AVIF at 65 matches the visual distortion of WebP at 82 while staying
+	 * markedly smaller; AVIF at 82 can be larger than the JPEG it replaces.
+	 *
+	 * @param string $format Format or file extension.
+	 * @return int
+	 */
+	public static function default_quality( string $format ): int {
+		return 'avif' === strtolower( $format ) ? 65 : 82;
+	}
+
+	/**
 	 * Generate alternates after core metadata generation.
 	 *
 	 * @param mixed $metadata      Attachment metadata.
@@ -465,7 +478,7 @@ final class Format_Generator {
 		}
 
 		if ( method_exists( $editor, 'set_quality' ) ) {
-			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', 82, $format, $source_path ) );
+			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', self::default_quality( $format ), $format, $source_path ) );
 		}
 
 		$saved = $editor->save( $target_path, $this->mime_for_format( $format ) );

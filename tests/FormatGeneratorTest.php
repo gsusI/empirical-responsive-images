@@ -221,6 +221,13 @@ namespace EmpiricalResponsiveImages\Tests {
 			}
 		}
 
+		public function test_default_quality_keeps_avif_smaller_than_webp(): void {
+			self::assertSame( 65, Format_Generator::default_quality( 'avif' ) );
+			self::assertSame( 65, Format_Generator::default_quality( 'AVIF' ) );
+			self::assertSame( 82, Format_Generator::default_quality( 'webp' ) );
+			self::assertSame( 82, Format_Generator::default_quality( 'jpg' ) );
+		}
+
 		public function test_avif_source_does_not_generate_avif_alternate(): void {
 			$source   = $this->configure_modern_format_source( 'avif' );
 			$settings = ( new Settings() )->defaults();

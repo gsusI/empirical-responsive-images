@@ -680,7 +680,7 @@ final class Background_Optimizer {
 
 		if ( method_exists( $editor, 'set_quality' ) ) {
 			$extension = strtolower( (string) pathinfo( $file, PATHINFO_EXTENSION ) );
-			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', 82, $extension, $file ) );
+			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', Format_Generator::default_quality( $extension ), $extension, $file ) );
 		}
 
 		$resized = $editor->resize( $target_width, null, false );

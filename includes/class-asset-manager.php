@@ -740,7 +740,7 @@ final class Asset_Manager {
 		}
 
 		if ( method_exists( $editor, 'set_quality' ) ) {
-			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', 82, $source['extension'], $source['path'] ) );
+			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', Format_Generator::default_quality( $source['extension'] ), $source['extension'], $source['path'] ) );
 		}
 
 		$resized = $editor->resize( $width, null, false );
@@ -796,7 +796,7 @@ final class Asset_Manager {
 		}
 
 		if ( method_exists( $editor, 'set_quality' ) ) {
-			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', 82, $format, $candidate_path ) );
+			$editor->set_quality( (int) apply_filters( 'empirical_responsive_images_output_quality', Format_Generator::default_quality( $format ), $format, $candidate_path ) );
 		}
 
 		$saved = $editor->save( $target['path'], 'image/' . $format );
