@@ -93,7 +93,7 @@ final class RendererScriptTest extends TestCase {
 	 * @param string $image_url       Image URL printed in the page.
 	 * @return string
 	 */
-	private function alternate_srcset_for( string $upload_base_url, string $image_url ): string {
+	private function alternate_srcset_for( string $upload_base_url, string $image_url, string $extra_candidates = '' ): string {
 		$base_dir               = sys_get_temp_dir() . '/eri-renderer-' . bin2hex( random_bytes( 8 ) );
 		$this->upload_directory = $base_dir;
 		$sidecar  = 'empirical-responsive-images/attachments/2026/10/shirt.webp';
@@ -120,7 +120,7 @@ final class RendererScriptTest extends TestCase {
 		);
 		$image    = array(
 			'src'    => $image_url,
-			'srcset' => $image_url . ' 1200w',
+			'srcset' => $image_url . ' 1200w' . $extra_candidates,
 		);
 
 		$method = new \ReflectionMethod( Renderer::class, 'build_alternate_srcset' );
@@ -165,6 +165,18 @@ final class RendererScriptTest extends TestCase {
 		$srcset = $this->alternate_srcset_for( 'http://example.test/wp-content/uploads', 'http://example.test/wp-content/uploads/2026/10/shirt.jpg' );
 
 		self::assertSame( $this->expected_srcset( 'http://example.test/wp-content/uploads' ), $srcset );
+	}
+
+	public function test_alternate_source_is_skipped_when_any_candidate_lacks_an_alternate(): void {
+		// A cropped 150px rendition has no sidecar; a source listing only 1200w would
+		// otherwise send a phone the full image, and one listing only a tiny size would blur it.
+		$srcset = $this->alternate_srcset_for(
+			'https://example.test/wp-content/uploads',
+			'https://example.test/wp-content/uploads/2026/10/shirt.jpg',
+			', https://example.test/wp-content/uploads/2026/10/shirt-150x150.jpg 150w'
+		);
+
+		self::assertSame( '', $srcset );
 	}
 
 	public function test_attachment_image_filter_tolerates_loose_arguments_from_themes(): void {

@@ -251,7 +251,13 @@ final class Renderer {
 		}
 
 		if ( false !== strpos( $html, 'data-empirical-responsive-images-picture-child' ) ) {
-			return $html;
+			if ( $in_picture ) {
+				return $html;
+			}
+
+			// A sanitizer (Elementor prints image widgets through wp_kses) dropped the
+			// PICTURE wrapper but kept the IMG, so wrap it again.
+			$html = $this->unmark_picture_child_html( $html );
 		}
 
 		$attachment_id = $this->attachment_id_from_html( $html );
@@ -753,6 +759,24 @@ final class Renderer {
 	}
 
 	/**
+	 * Remove the picture-child marker from an image that lost its wrapper.
+	 *
+	 * @param string $html Image HTML.
+	 * @return string
+	 */
+	private function unmark_picture_child_html( string $html ): string {
+		$processor = new \WP_HTML_Tag_Processor( $html );
+
+		if ( ! $processor->next_tag( array( 'tag_name' => 'IMG' ) ) ) {
+			return $html;
+		}
+
+		$processor->remove_attribute( 'data-empirical-responsive-images-picture-child' );
+
+		return $processor->get_updated_html();
+	}
+
+	/**
 	 * Remove learning attributes from an ineligible attachment rendition.
 	 *
 	 * @param string $html Image HTML.
@@ -921,6 +945,10 @@ final class Renderer {
 	/**
 	 * Build one alternate srcset.
 	 *
+	 * Returns an empty string unless every candidate has an alternate: a source
+	 * that lists only some widths makes the browser pick from that subset, so an
+	 * image could be served from a far smaller file than its slot needs.
+	 *
 	 * @param array  $image    Image attributes.
 	 * @param array  $metadata Attachment metadata.
 	 * @param string $format   Target format.
@@ -945,7 +973,7 @@ final class Renderer {
 			$alternate_url = $this->alternate_url_for_upload_url( $item['url'], $metadata, $format );
 
 			if ( '' === $alternate_url ) {
-				continue;
+				return '';
 			}
 
 			$output[] = trim( $alternate_url . ' ' . $item['descriptor'] );
