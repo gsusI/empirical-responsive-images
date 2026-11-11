@@ -68,6 +68,8 @@ final class Cache_Compat {
 			sg_cachepress_purge_cache( $url );
 		}
 
+		self::purge_elementor_element_cache();
+
 		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party cache hooks must use their documented names.
 		do_action( 'litespeed_purge_url', $url );
 		do_action( 'breeze_clear_all_cache' );
@@ -101,10 +103,30 @@ final class Cache_Compat {
 			sg_cachepress_purge_everything();
 		}
 
+		self::purge_elementor_element_cache();
+
 		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Third-party cache hooks must use their documented names.
 		do_action( 'litespeed_purge_all' );
 		do_action( 'breeze_clear_all_cache' );
 		// phpcs:enable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
 		do_action( 'empirical_responsive_images_purge_all' );
+	}
+
+	/**
+	 * Drop Elementor's cached widget HTML so new picture markup is rendered.
+	 *
+	 * Elementor caches rendered elements in post meta for a day, which would keep
+	 * serving images without their new picture sources. Header and footer
+	 * templates are separate posts, so the whole cache is cleared; generated CSS
+	 * files are left alone.
+	 *
+	 * @return void
+	 */
+	private static function purge_elementor_element_cache(): void {
+		if ( ! defined( 'ELEMENTOR_VERSION' ) ) {
+			return;
+		}
+
+		delete_post_meta_by_key( '_elementor_element_cache' );
 	}
 }

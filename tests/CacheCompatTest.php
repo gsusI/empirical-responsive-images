@@ -33,4 +33,16 @@ final class CacheCompatTest extends TestCase {
 		self::assertSame( 1, $GLOBALS['eri_test_siteground_purge_all'] );
 		self::assertNotContains( 'sg_cachepress_purge_cache', array_column( $GLOBALS['eri_test_actions'], 0 ) );
 	}
+
+	public function test_elementor_element_cache_is_cleared_only_when_elementor_is_active(): void {
+		Cache_Compat::purge_all();
+		self::assertSame( array(), $GLOBALS['eri_test_deleted_meta_keys'] );
+
+		define( 'ELEMENTOR_VERSION', 'test' );
+
+		Cache_Compat::purge_url( 'https://example.test/' );
+		Cache_Compat::purge_all();
+
+		self::assertSame( array( '_elementor_element_cache', '_elementor_element_cache' ), $GLOBALS['eri_test_deleted_meta_keys'] );
+	}
 }

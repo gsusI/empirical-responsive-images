@@ -36,6 +36,7 @@ $GLOBALS['eri_test_siteground_purge_all']        = 0;
 $GLOBALS['eri_test_update_option_failures']      = array();
 $GLOBALS['eri_test_getimagesize_calls']          = array();
 $GLOBALS['eri_test_posts']                       = array();
+$GLOBALS['eri_test_deleted_meta_keys']           = array();
 $GLOBALS['eri_test_uploads']                     = array(
 	'basedir' => __DIR__ . '/runtime/uploads',
 	'baseurl' => 'https://example.test/uploads',
@@ -64,6 +65,7 @@ function eri_test_reset_state(): void {
 	$GLOBALS['eri_test_update_option_failures']      = array();
 	$GLOBALS['eri_test_getimagesize_calls']          = array();
 	$GLOBALS['eri_test_posts']                       = array();
+	$GLOBALS['eri_test_deleted_meta_keys']           = array();
 	$GLOBALS['eri_test_uploads']                     = array(
 		'basedir' => __DIR__ . '/runtime/uploads',
 		'baseurl' => 'https://example.test/uploads',
@@ -440,6 +442,12 @@ function is_post_type_viewable( $post_type ): bool {
 
 function get_permalink( $post ) {
 	return 'https://example.test/?p=' . (int) $post;
+}
+
+function delete_post_meta_by_key( string $post_meta_key ): bool {
+	$GLOBALS['eri_test_deleted_meta_keys'][] = $post_meta_key;
+
+	return true;
 }
 
 function sg_cachepress_purge_everything(): bool {
