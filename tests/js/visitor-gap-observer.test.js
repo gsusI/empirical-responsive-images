@@ -203,7 +203,9 @@ function runDetector(srcset, renderedWidth, options = {}) {
 					|| (name === MAXIMUM_WIDTH_ATTRIBUTE && hasImageMaximumWidth)
 				)
 		),
-		getBoundingClientRect: () => ({ width: currentRenderedWidth, height: 200 }),
+		getBoundingClientRect: () => ({ width: currentRenderedWidth, height: options.renderedHeight || 200 }),
+		naturalWidth: options.naturalWidth || 0,
+		naturalHeight: options.naturalHeight || 0,
 		addEventListener: (name, callback) => {
 			imageEventHandlers[name] = callback;
 		}
@@ -300,6 +302,7 @@ function runDetector(srcset, renderedWidth, options = {}) {
 				timers.delete(timerId);
 			},
 			devicePixelRatio: options.devicePixelRatio || 1,
+			getComputedStyle: options.objectFit ? () => ({ objectFit: options.objectFit }) : undefined,
 			innerWidth: options.viewportWidth || 1440,
 			fetch: (url, options) => {
 				requests.push({ url, options });
@@ -599,6 +602,43 @@ test('attachment reports the same bounded layout evidence for relative CSS slots
 			}
 		]
 	});
+});
+
+test('cover-cropped attachment reports the width its crop needs and flags cover', () => {
+	// A 16:9 photo cropped into a 300px square needs 300 x 16 / 9 = 534 CSS pixels.
+	const requests = runDetector('small.jpg 300w, medium.jpg 600w, large.jpg 1200w', 300, {
+		currentSrc: 'https://example.test/products/example/medium.jpg',
+		devicePixelRatio: 2,
+		naturalHeight: 675,
+		naturalWidth: 1200,
+		objectFit: 'cover',
+		renderedHeight: 300,
+		targetKind: 'attachment',
+		viewportWidth: 390
+	});
+	const gap = JSON.parse(requests[0].options.body).gaps[0];
+
+	assert.equal(gap.slot, 544);
+	assert.equal(gap.viewport, 512);
+	assert.equal(gap.cover, true);
+	assert.ok(gap.width >= 1068);
+});
+
+test('uncropped attachment keeps box-width layout evidence without a cover flag', () => {
+	const requests = runDetector('small.jpg 300w, large.jpg 1200w', 300, {
+		currentSrc: 'https://example.test/products/example/small.jpg',
+		devicePixelRatio: 2,
+		naturalHeight: 675,
+		naturalWidth: 1200,
+		objectFit: 'contain',
+		renderedHeight: 300,
+		targetKind: 'attachment',
+		viewportWidth: 390
+	});
+	const gap = JSON.parse(requests[0].options.body).gaps[0];
+
+	assert.equal(gap.slot, 304);
+	assert.equal(gap.cover, undefined);
 });
 
 test('uncovered page sends one signed target gap without cookies or referrer', () => {

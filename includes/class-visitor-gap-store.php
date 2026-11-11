@@ -497,6 +497,7 @@ final class Visitor_Gap_Store {
 						'requested_width'      => $normalized['requested_width'],
 						'viewport_width'       => $normalized['viewport_width'],
 						'slot_width'           => $normalized['slot_width'],
+						'cover'                => ! empty( $normalized['cover'] ),
 						'creates_width'        => $normalized['creates_width'],
 						'confirmations'        => 0,
 						'first_seen'           => $now,
@@ -522,6 +523,10 @@ final class Visitor_Gap_Store {
 					if ( absint( $normalized[ $metric ] ?? 0 ) > 0 ) {
 						$job[ $metric ] = absint( $normalized[ $metric ] );
 					}
+				}
+
+				if ( ! empty( $normalized['cover'] ) ) {
+					$job['cover'] = true;
 				}
 
 				$status          = (string) ( $job['status'] ?? '' );
@@ -1079,13 +1084,15 @@ final class Visitor_Gap_Store {
 		$type             = sanitize_key( (string) ( $target['type'] ?? '' ) );
 		$viewport_width   = $this->normalize_metric( $gap['viewport'] ?? 0, 128, 5120 );
 		$slot_width       = $this->normalize_metric( $gap['slot'] ?? 0, 16, 5120 );
+		$cover            = 'attachment' === $type && true === ( $gap['cover'] ?? false );
 
-		if ( ! $this->layout_metrics_are_plausible( $reported_width, $viewport_width, $slot_width ) ) {
+		if ( ! $this->layout_metrics_are_plausible( $reported_width, $viewport_width, $slot_width, $cover, $maximum ) ) {
 			$viewport_width = 0;
 			$slot_width     = 0;
 		}
 
 		$has_layout_hint   = $viewport_width > 0 && $slot_width > 0;
+		$cover             = $cover && $has_layout_hint;
 		$already_optimized = $is_current_protocol
 			? (
 				$native_width > 0
@@ -1100,7 +1107,7 @@ final class Visitor_Gap_Store {
 			);
 
 		// A job that would change nothing still spends daily work and purges pages.
-		if ( $files_ready && ( ! $has_layout_hint || $this->layout_is_recorded( $target, $work_width, $viewport_width, $slot_width ) ) ) {
+		if ( $files_ready && ( ! $has_layout_hint || $this->layout_is_recorded( $target, $work_width, $viewport_width, $slot_width, $cover ) ) ) {
 			return array();
 		}
 
@@ -1117,6 +1124,7 @@ final class Visitor_Gap_Store {
 			'requested_width'      => $requested_width,
 			'viewport_width'       => $viewport_width,
 			'slot_width'           => $slot_width,
+			'cover'                => $cover,
 			'creates_width'        => 0 === $native_width,
 			'managed_widths'       => Visitor_Gap_Target::get_managed_widths( $target, $this->get_asset_manager() ),
 			'trusted_confirmation' => $trusted_confirmation,
@@ -1130,11 +1138,18 @@ final class Visitor_Gap_Store {
 	 * @param int   $width          Work width.
 	 * @param int   $viewport_width Coarse viewport bucket.
 	 * @param int   $slot_width     Coarse rendered slot bucket.
+	 * @param bool  $cover          Whether the image is cropped to cover its box.
 	 * @return bool
 	 */
-	private function layout_is_recorded( array $target, int $width, int $viewport_width, int $slot_width ): bool {
+	private function layout_is_recorded( array $target, int $width, int $viewport_width, int $slot_width, bool $cover = false ): bool {
 		if ( 'attachment' === (string) ( $target['type'] ?? '' ) ) {
-			return $this->get_observation_store()->attachment_layout_is_recorded( absint( $target['attachment_id'] ?? 0 ), $viewport_width, $slot_width );
+			return $this->get_observation_store()->attachment_layout_is_recorded(
+				absint( $target['attachment_id'] ?? 0 ),
+				$viewport_width,
+				$slot_width,
+				(string) ( $target['context'] ?? '' ),
+				$cover
+			);
 		}
 
 		return $this->get_observation_store()->asset_layout_is_recorded( (string) ( $target['url'] ?? '' ), $width, $viewport_width, $slot_width );
@@ -1172,21 +1187,29 @@ final class Visitor_Gap_Store {
 	/**
 	 * Reject anonymous layout hints that cannot describe the reported image.
 	 *
-	 * @param int $physical_width Coarse physical-pixel target.
-	 * @param int $viewport_width Coarse CSS viewport width.
-	 * @param int $slot_width     Coarse CSS slot width.
+	 * A cover-cropped image needs more width than its box, so its slot may
+	 * exceed the viewport. A physical width capped by the source still counts.
+	 *
+	 * @param int  $physical_width Coarse physical-pixel target.
+	 * @param int  $viewport_width Coarse CSS viewport width.
+	 * @param int  $slot_width     Coarse CSS slot width.
+	 * @param bool $cover          Whether the image is cropped to cover its box.
+	 * @param int  $maximum        Largest width the target can reach.
 	 * @return bool
 	 */
-	private function layout_metrics_are_plausible( int $physical_width, int $viewport_width, int $slot_width ): bool {
+	private function layout_metrics_are_plausible( int $physical_width, int $viewport_width, int $slot_width, bool $cover = false, int $maximum = 0 ): bool {
 		if ( $viewport_width < 1 || $slot_width < 1 || $physical_width < 1 ) {
 			return false;
 		}
 
-		if ( $slot_width > $viewport_width + 32 ) {
+		if ( $slot_width > ( $cover ? $viewport_width * 3 : $viewport_width ) + 32 ) {
 			return false;
 		}
 
-		return $physical_width >= (int) floor( $slot_width * 0.8 )
+		return (
+			$physical_width >= (int) floor( $slot_width * 0.8 )
+			|| ( $maximum > 0 && $physical_width >= $maximum )
+		)
 			&& $physical_width <= (int) ceil( $slot_width * 4.8 );
 	}
 

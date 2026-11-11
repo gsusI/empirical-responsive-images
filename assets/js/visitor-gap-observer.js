@@ -237,7 +237,7 @@
 		scheduleFlush();
 	}
 
-	function queueGap(target, targetWidth, targetMaximumWidth, nativeWidth, viewportWidth, slotWidth, critical) {
+	function queueGap(target, targetWidth, targetMaximumWidth, nativeWidth, viewportWidth, slotWidth, critical, cover) {
 		var width = critical
 			? criticalWidth(targetWidth, Math.min(maximumWidth, targetMaximumWidth || maximumWidth))
 			: bucketWidth(targetWidth, bucketWidths, Math.min(maximumWidth, targetMaximumWidth || maximumWidth));
@@ -269,6 +269,10 @@
 		if (viewportWidth > 0 && slotWidth > 0) {
 			gap.viewport = Math.min(5120, Math.ceil(viewportWidth / 128) * 128);
 			gap.slot = Math.min(5120, Math.ceil(slotWidth / 16) * 16);
+
+			if (cover) {
+				gap.cover = true;
+			}
 		}
 
 		pendingGaps.set(key, gap);
@@ -392,6 +396,39 @@
 		});
 	}
 
+	// object-fit: cover scales the image until it fills the box, so a photo
+	// wider than its box needs box height x aspect ratio CSS pixels, not the
+	// box width. Browsers size srcset choices (and sizes="auto") by the box.
+	function coverLayoutWidth(image, renderedWidth, renderedHeight) {
+		if (renderedWidth < 1 || renderedHeight < 1 || typeof window.getComputedStyle !== 'function') {
+			return renderedWidth;
+		}
+
+		var style = null;
+
+		try {
+			style = window.getComputedStyle(image);
+		} catch (error) {
+			return renderedWidth;
+		}
+
+		if (!style || String(style.objectFit || '').trim() !== 'cover') {
+			return renderedWidth;
+		}
+
+		var intrinsicWidth = Number(image.naturalWidth) || Number(image.getAttribute('width'));
+		var intrinsicHeight = Number(image.naturalHeight) || Number(image.getAttribute('height'));
+
+		if (!(intrinsicWidth > 0) || !(intrinsicHeight > 0)) {
+			return renderedWidth;
+		}
+
+		return Math.max(
+			renderedWidth,
+			Math.min(renderedWidth * 4, Math.ceil(renderedHeight * intrinsicWidth / intrinsicHeight))
+		);
+	}
+
 	function inspectImage(image) {
 		if (!image || !image.getBoundingClientRect) {
 			return;
@@ -417,9 +454,10 @@
 			targetMaximumWidth = Math.min(targetMaximumWidth, Math.floor(imageMaximumWidth));
 		}
 
+		var layoutWidth = coverLayoutWidth(image, renderedWidth, renderedHeight);
 		var targetWidth = Math.min(
 			targetMaximumWidth,
-			Math.ceil(renderedWidth * dpr)
+			Math.ceil(layoutWidth * dpr)
 		);
 		var candidateWidths = getCandidateWidths(image, renderedWidth);
 		var useCriticalCoverage = bucketProtocolVersion >= 3 && isHighPriorityImage(image);
@@ -488,8 +526,9 @@
 				targetMaximumWidth,
 				nativeWidth,
 				learnsLayout ? Number(window.innerWidth || 0) : 0,
-				learnsLayout ? renderedWidth : 0,
-			useCriticalCoverage
+				learnsLayout ? layoutWidth : 0,
+				useCriticalCoverage,
+				'attachment' === targetKind && layoutWidth > renderedWidth
 			);
 		}
 	}

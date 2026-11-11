@@ -15,6 +15,11 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Generates responsive variants for local non-attachment images.
  */
 final class Asset_Manager {
+	/**
+	 * Narrowest viewport bucket treated as a desktop layout.
+	 */
+	private const DESKTOP_VIEWPORT = 1024;
+
 	private const VARIANT_DIRECTORY = 'empirical-responsive-images/assets';
 	private const MAX_SOURCE_BYTES  = 20971520;
 	private const MAX_SOURCE_PIXELS = 24000000;
@@ -865,12 +870,18 @@ final class Asset_Manager {
 	}
 
 	/**
-	 * Build an empirical sizes attribute from observed CSS slots.
+	 * Build a sizes value from viewport-bucketed slot widths.
 	 *
-	 * @param array $slot_widths Slot width map.
+	 * Viewports wider than any learned bucket would otherwise reuse the widest
+	 * learned slot. When only small viewports have been seen, a fallback (the
+	 * image's original sizes value) covers the rest instead of assuming a phone
+	 * layout on desktop.
+	 *
+	 * @param array  $slot_widths Slot widths keyed by viewport bucket.
+	 * @param string $fallback    Sizes value for viewports wider than every learned bucket.
 	 * @return string
 	 */
-	public function build_empirical_sizes( array $slot_widths ): string {
+	public function build_empirical_sizes( array $slot_widths, string $fallback = '' ): string {
 		$slots = array();
 
 		foreach ( $slot_widths as $viewport => $slot_width ) {
@@ -883,7 +894,7 @@ final class Asset_Manager {
 		}
 
 		if ( empty( $slots ) ) {
-			return '100vw';
+			return '' !== trim( $fallback ) ? trim( $fallback ) : '100vw';
 		}
 
 		ksort( $slots );
@@ -894,7 +905,10 @@ final class Asset_Manager {
 			$parts[] = '(max-width: ' . $viewport . 'px) ' . $slot_width . 'px';
 		}
 
-		$parts[] = max( $slots ) . 'px';
+		$fallback = trim( preg_replace( '/^auto\s*,\s*/i', '', trim( $fallback ) ) );
+		$parts[]  = '' !== $fallback && max( array_keys( $slots ) ) < self::DESKTOP_VIEWPORT
+			? $fallback
+			: max( $slots ) . 'px';
 
 		return implode( ', ', array_unique( $parts ) );
 	}

@@ -274,4 +274,19 @@ final class VisitorGapTargetTest extends TestCase {
 			. $key
 			. '/source-icon-1024.webp';
 	}
+
+	public function test_placement_context_is_signed_into_attachment_targets(): void {
+		$this->attachment_target( 805 );
+
+		$manager = new Asset_Manager( new Settings() );
+		$context = Visitor_Gap_Target::attachment_context( 'hero-image' );
+		$token   = Visitor_Gap_Target::token_for_attachment( 805, $context );
+		$plain   = Visitor_Gap_Target::token_for_attachment( 805 );
+
+		self::assertNotSame( $plain, $token );
+		self::assertSame( $context, Visitor_Gap_Target::resolve( $token, $manager )['context'] );
+		self::assertSame( 805, Visitor_Gap_Target::resolve( $token, $manager )['attachment_id'] );
+		self::assertSame( '', Visitor_Gap_Target::resolve( $plain, $manager )['context'] );
+		self::assertSame( $plain, Visitor_Gap_Target::token_for_attachment( 805, 'NOT-A-CONTEXT' ) );
+	}
 }

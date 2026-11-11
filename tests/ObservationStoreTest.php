@@ -12,6 +12,7 @@ namespace EmpiricalResponsiveImages\Tests;
 use EmpiricalResponsiveImages\Asset_Manager;
 use EmpiricalResponsiveImages\Observation_Store;
 use EmpiricalResponsiveImages\Settings;
+use EmpiricalResponsiveImages\Visitor_Gap_Target;
 use PHPUnit\Framework\TestCase;
 
 final class ObservationStoreTest extends TestCase {
@@ -303,5 +304,39 @@ final class ObservationStoreTest extends TestCase {
 				),
 			),
 		);
+	}
+
+	public function test_attachment_layouts_are_kept_apart_per_placement(): void {
+		$GLOBALS['eri_test_image_attachments'][903] = true;
+
+		$store = new Observation_Store( new Asset_Manager( new Settings() ) );
+		$hero  = Visitor_Gap_Target::attachment_context( 'tcc-flavour-page__image wp-post-image wp-image-903' );
+		$card  = Visitor_Gap_Target::attachment_context( 'attachment-large size-large wp-image-903' );
+
+		self::assertNotSame( $hero, $card );
+		self::assertSame( $card, Visitor_Gap_Target::attachment_context( 'size-large  attachment-large wp-image-17 empirical-responsive-image' ) );
+
+		self::assertTrue( $store->record_automatic_attachment_slot( 903, 512, 192, $card ) );
+		self::assertTrue( $store->record_automatic_attachment_slot( 903, 512, 1216, $hero, true ) );
+
+		self::assertSame( array( '512' => 192 ), $store->get_attachment_slot_widths( 903, $card ) );
+		self::assertSame(
+			array(
+				'slot_widths' => array( '512' => 1216 ),
+				'cover'       => true,
+			),
+			$store->get_attachment_layout( 903, $hero )
+		);
+		self::assertSame( array(), $store->get_attachment_slot_widths( 903 ) );
+		self::assertFalse( $store->attachment_layout_is_recorded( 903, 512, 192, $card, true ) );
+		self::assertTrue( $store->attachment_layout_is_recorded( 903, 512, 1216, $hero, true ) );
+
+		self::assertTrue( $store->record_automatic_attachment_slot( 903, 512, 1216, $hero ) );
+		self::assertTrue( $store->get_attachment_layout( 903, $hero )['cover'] );
+
+		$store->delete_attachment_slots( 903 );
+
+		self::assertSame( array(), $store->get_attachment_slot_widths( 903, $hero ) );
+		self::assertSame( array(), $store->get_attachment_slot_widths( 903, $card ) );
 	}
 }

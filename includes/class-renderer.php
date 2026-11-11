@@ -574,8 +574,10 @@ final class Renderer {
 			return $html;
 		}
 
+		$context = Visitor_Gap_Target::attachment_context( $this->image_class_from_html( $html ) );
+
 		if ( $apply_empirical_sizes ) {
-			$html = $this->apply_attachment_empirical_sizes_html( $html, $attachment_id );
+			$html = $this->apply_attachment_empirical_sizes_html( $html, $attachment_id, $context );
 		}
 
 		$processor = new \WP_HTML_Tag_Processor( $html );
@@ -598,7 +600,7 @@ final class Renderer {
 			return $this->remove_learning_attributes_html( $marked_html );
 		}
 
-		$target = Visitor_Gap_Target::token_for_attachment( $attachment_id );
+		$target = Visitor_Gap_Target::token_for_attachment( $attachment_id, $context );
 
 		if ( '' === $target ) {
 			return $marked_html;
@@ -679,28 +681,35 @@ final class Renderer {
 	 *
 	 * Lazy images retain the standards-based auto keyword, which lets supporting
 	 * browsers use the actual layout slot even when CSS uses %, vh, or calc().
+	 * Cover-cropped images drop it: auto describes the box, and the crop needs
+	 * a wider image than the box.
 	 *
 	 * @param string $html          Image HTML.
 	 * @param int    $attachment_id Attachment ID.
+	 * @param string $context       Placement context.
 	 * @return string
 	 */
-	private function apply_attachment_empirical_sizes_html( string $html, int $attachment_id ): string {
-		$slot_widths = $this->store->get_attachment_slot_widths( $attachment_id );
+	private function apply_attachment_empirical_sizes_html( string $html, int $attachment_id, string $context = '' ): string {
+		$layout = $this->store->get_attachment_layout( $attachment_id, $context );
 
-		if ( empty( $slot_widths ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
+		if ( empty( $layout['slot_widths'] ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
 			return $html;
 		}
 
 		$processor = new \WP_HTML_Tag_Processor( $html );
 
-		if ( ! $processor->next_tag( array( 'tag_name' => 'IMG' ) ) || ! $this->responsive_sizes_are_plugin_manageable( $processor ) ) {
+		if (
+			! $processor->next_tag( array( 'tag_name' => 'IMG' ) )
+			|| 'empirical' === (string) $processor->get_attribute( 'data-empirical-responsive-images-sizes' )
+			|| ! $this->responsive_sizes_are_plugin_manageable( $processor )
+		) {
 			return $html;
 		}
 
-		$sizes   = $this->asset_manager->build_empirical_sizes( $slot_widths );
+		$sizes   = $this->asset_manager->build_empirical_sizes( $layout['slot_widths'], (string) $processor->get_attribute( 'sizes' ) );
 		$loading = strtolower( (string) $processor->get_attribute( 'loading' ) );
 
-		if ( 'lazy' === $loading && 0 !== strpos( ltrim( $sizes ), 'auto,' ) ) {
+		if ( 'lazy' === $loading && ! $layout['cover'] && 0 !== strpos( ltrim( $sizes ), 'auto,' ) ) {
 			$sizes = 'auto, ' . $sizes;
 		}
 

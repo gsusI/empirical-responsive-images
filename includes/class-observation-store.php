@@ -311,37 +311,78 @@ final class Observation_Store {
 	}
 
 	/**
-	 * Get bounded visitor-learned CSS slot widths for one attachment.
+	 * Get bounded visitor-learned CSS slot widths for one attachment placement.
 	 *
-	 * @param int $attachment_id Attachment ID.
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $context       Placement context.
 	 * @return array
 	 */
-	public function get_attachment_slot_widths( int $attachment_id ): array {
+	public function get_attachment_slot_widths( int $attachment_id, string $context = '' ): array {
+		return $this->get_attachment_layout( $attachment_id, $context )['slot_widths'];
+	}
+
+	/**
+	 * Get visitor-learned layout evidence for one attachment placement.
+	 *
+	 * Records learned before placements were tracked carry no context and are
+	 * only returned for an empty context, so they never resize other slots.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $context       Placement context.
+	 * @return array{slot_widths: array, cover: bool}
+	 */
+	public function get_attachment_layout( int $attachment_id, string $context = '' ): array {
+		$empty = array(
+			'slot_widths' => array(),
+			'cover'       => false,
+		);
+
 		if ( $attachment_id < 1 ) {
-			return array();
+			return $empty;
 		}
 
 		$data  = $this->get_data();
-		$key   = (string) $attachment_id;
+		$key   = self::attachment_slot_key( $attachment_id, $context );
 		$entry = isset( $data['attachment_slots'][ $key ] ) && is_array( $data['attachment_slots'][ $key ] )
 			? $data['attachment_slots'][ $key ]
 			: array();
 
-		return isset( $entry['slot_widths'] ) && is_array( $entry['slot_widths'] )
-			? $this->sanitize_slot_width_map( $entry['slot_widths'] )
-			: array();
+		return array(
+			'slot_widths' => isset( $entry['slot_widths'] ) && is_array( $entry['slot_widths'] )
+				? $this->sanitize_slot_width_map( $entry['slot_widths'] )
+				: array(),
+			'cover'       => ! empty( $entry['cover'] ),
+		);
+	}
+
+	/**
+	 * Build the storage key for one attachment placement.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $context       Placement context.
+	 * @return string
+	 */
+	public static function attachment_slot_key( int $attachment_id, string $context = '' ): string {
+		$context = Visitor_Gap_Target::sanitize_context( $context );
+
+		return (string) absint( $attachment_id ) . ( '' !== $context ? '|' . $context : '' );
 	}
 
 	/**
 	 * Check whether an attachment layout report would leave stored slots unchanged.
 	 *
-	 * @param int $attachment_id  Attachment ID.
-	 * @param int $viewport_width Coarse viewport bucket.
-	 * @param int $slot_width     Coarse rendered slot bucket.
+	 * @param int    $attachment_id  Attachment ID.
+	 * @param int    $viewport_width Coarse viewport bucket.
+	 * @param int    $slot_width     Coarse rendered slot bucket.
+	 * @param string $context        Placement context.
+	 * @param bool   $cover          Whether the image is cropped to cover its box.
 	 * @return bool
 	 */
-	public function attachment_layout_is_recorded( int $attachment_id, int $viewport_width, int $slot_width ): bool {
-		return $this->slot_map_covers( $this->get_attachment_slot_widths( $attachment_id ), $viewport_width, $slot_width );
+	public function attachment_layout_is_recorded( int $attachment_id, int $viewport_width, int $slot_width, string $context = '', bool $cover = false ): bool {
+		$layout = $this->get_attachment_layout( $attachment_id, $context );
+
+		return ( ! $cover || $layout['cover'] )
+			&& $this->slot_map_covers( $layout['slot_widths'], $viewport_width, $slot_width );
 	}
 
 	/**
@@ -532,12 +573,14 @@ final class Observation_Store {
 	/**
 	 * Record one bounded visitor-learned attachment layout.
 	 *
-	 * @param int $attachment_id Attachment ID.
-	 * @param int $viewport_width Coarse viewport bucket.
-	 * @param int $slot_width Coarse rendered slot bucket.
+	 * @param int    $attachment_id  Attachment ID.
+	 * @param int    $viewport_width Coarse viewport bucket.
+	 * @param int    $slot_width     Coarse rendered slot bucket.
+	 * @param string $context        Placement context.
+	 * @param bool   $cover          Whether the image is cropped to cover its box.
 	 * @return bool Whether the exact layout record is durable.
 	 */
-	public function record_automatic_attachment_slot( int $attachment_id, int $viewport_width, int $slot_width ): bool {
+	public function record_automatic_attachment_slot( int $attachment_id, int $viewport_width, int $slot_width, string $context = '', bool $cover = false ): bool {
 		$attachment_id  = absint( $attachment_id );
 		$viewport_width = min( 5120, absint( $viewport_width ) );
 		$slot_width     = min( 5120, absint( $slot_width ) );
@@ -553,7 +596,7 @@ final class Observation_Store {
 		try {
 			$data  = $this->get_data();
 			$now   = time();
-			$key   = (string) $attachment_id;
+			$key   = self::attachment_slot_key( $attachment_id, $context );
 			$entry = isset( $data['attachment_slots'][ $key ] ) && is_array( $data['attachment_slots'][ $key ] )
 				? $data['attachment_slots'][ $key ]
 				: array(
@@ -571,6 +614,10 @@ final class Observation_Store {
 			ksort( $entry['slot_widths'] );
 			$entry['slot_widths'] = array_slice( $entry['slot_widths'], 0, self::MAX_SLOT_WIDTHS_PER_TARGET, true );
 			$entry['last_seen']   = $now;
+
+			if ( $cover ) {
+				$entry['cover'] = true;
+			}
 
 			$data['attachment_slots'][ $key ] = $entry;
 			$data['attachment_slots']         = $this->trim_attachment_slots(
@@ -600,13 +647,22 @@ final class Observation_Store {
 		}
 
 		try {
-			$data = $this->get_data();
+			$data    = $this->get_data();
+			$removed = false;
 
-			if ( ! isset( $data['attachment_slots'][ $key ] ) ) {
+			foreach ( array_keys( $data['attachment_slots'] ) as $slot_key ) {
+				$slot_key = (string) $slot_key;
+
+				if ( $slot_key === $key || 0 === strpos( $slot_key, $key . '|' ) ) {
+					unset( $data['attachment_slots'][ $slot_key ] );
+					$removed = true;
+				}
+			}
+
+			if ( ! $removed ) {
 				return;
 			}
 
-			unset( $data['attachment_slots'][ $key ] );
 			$data['updated_at'] = time();
 			$this->persist_locked_data( $data );
 		} finally {

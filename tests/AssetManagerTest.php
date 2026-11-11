@@ -147,4 +147,18 @@ final class AssetManagerTest extends TestCase {
 
 		$this->created_files[] = $target;
 	}
+
+	public function test_empirical_sizes_do_not_extend_phone_slots_to_desktop(): void {
+		$manager = new Asset_Manager( new Settings() );
+
+		self::assertSame(
+			'(max-width: 512px) 192px, (max-width: 1024px) 100vw, 1024px',
+			$manager->build_empirical_sizes( array( '512' => 192 ), 'auto, (max-width: 1024px) 100vw, 1024px' )
+		);
+		self::assertSame(
+			'(max-width: 512px) 368px, (max-width: 1408px) 304px, 368px',
+			$manager->build_empirical_sizes( array( '512' => 368, '1408' => 304 ), '(max-width: 1024px) 100vw, 1024px' )
+		);
+		self::assertSame( '(max-width: 512px) 192px, 192px', $manager->build_empirical_sizes( array( '512' => 192 ) ) );
+	}
 }

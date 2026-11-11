@@ -1267,4 +1267,27 @@ final class VisitorGapStoreTest extends TestCase {
 	private function asset_manager(): \EmpiricalResponsiveImages\Asset_Manager {
 		return new \EmpiricalResponsiveImages\Asset_Manager( new Settings() );
 	}
+
+	public function test_cover_cropped_slot_wider_than_viewport_is_kept_with_its_placement(): void {
+		$this->sized_attachment_target( 101, 640 );
+
+		$context = Visitor_Gap_Target::attachment_context( 'hero-image' );
+		$target  = Visitor_Gap_Target::token_for_attachment( 101, $context );
+		$store   = new Visitor_Gap_Store( $this->asset_manager() );
+
+		// A 704px crop on a 390px phone is only plausible for a cover-cropped image.
+		$result = $store->record_gaps( array( $this->layout_gap( $target, 640, 640, 390, 704 ) ), new Settings() );
+
+		self::assertSame( 0, $result['accepted'] );
+
+		$cover          = $this->layout_gap( $target, 640, 640, 390, 704 );
+		$cover['cover'] = true;
+		$result         = $store->record_gaps( array( $cover ), new Settings() );
+		$job            = reset( $store->get_data()['jobs'] );
+
+		self::assertSame( 1, $result['accepted'] );
+		self::assertSame( 512, $job['viewport_width'] );
+		self::assertSame( 704, $job['slot_width'] );
+		self::assertTrue( $job['cover'] );
+	}
 }

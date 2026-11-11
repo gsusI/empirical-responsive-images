@@ -361,6 +361,7 @@ final class Background_Optimizer {
 		$viewport_width = absint( $job['viewport_width'] ?? 0 );
 		$slot_width     = absint( $job['slot_width'] ?? 0 );
 		$creates_width  = ! empty( $job['creates_width'] );
+		$cover          = ! empty( $job['cover'] );
 
 		if ( '' === $token || $width < 1 || '' === $lease ) {
 			$this->complete_safely( $job_id, $lease, false, 'invalid_job' );
@@ -391,7 +392,7 @@ final class Background_Optimizer {
 				return;
 			}
 
-			$result = $this->process_attachment( $target, $width, $viewport_width, $slot_width, $creates_width );
+			$result = $this->process_attachment( $target, $width, $viewport_width, $slot_width, $creates_width, $cover );
 		} elseif ( 'asset' === (string) ( $target['type'] ?? '' ) ) {
 			if ( ! $this->settings->is_asset_processing_enabled() ) {
 				$this->store->discard_job( $job_id, $lease );
@@ -501,9 +502,10 @@ final class Background_Optimizer {
 	 * @param int   $viewport_width Coarse viewport bucket.
 	 * @param int   $slot_width     Coarse CSS slot bucket.
 	 * @param bool  $creates_width  Whether evidence requested a new exact width.
+	 * @param bool  $cover          Whether the image is cropped to cover its box.
 	 * @return array
 	 */
-	private function process_attachment( array $target, int $width, int $viewport_width, int $slot_width, bool $creates_width ): array {
+	private function process_attachment( array $target, int $width, int $viewport_width, int $slot_width, bool $creates_width, bool $cover = false ): array {
 		$attachment_id    = absint( $target['attachment_id'] ?? 0 );
 		$required_formats = Visitor_Gap_Target::get_applicable_formats(
 			$target,
@@ -612,7 +614,13 @@ final class Background_Optimizer {
 		if (
 			$viewport_width > 0
 			&& $slot_width > 0
-			&& ! $this->observation_store->record_automatic_attachment_slot( $attachment_id, $viewport_width, $slot_width )
+			&& ! $this->observation_store->record_automatic_attachment_slot(
+				$attachment_id,
+				$viewport_width,
+				$slot_width,
+				(string) ( $target['context'] ?? '' ),
+				$cover
+			)
 		) {
 			return array(
 				'success' => false,

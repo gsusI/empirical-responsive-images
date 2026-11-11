@@ -50,31 +50,73 @@ final class Visitor_Gap_Target {
 	/**
 	 * Create a signed target for one image attachment.
 	 *
-	 * @param int $attachment_id Attachment ID.
+	 * The optional placement context keeps layout evidence for one image
+	 * apart from the same image shown elsewhere at another size.
+	 *
+	 * @param int    $attachment_id Attachment ID.
+	 * @param string $context       Placement context from attachment_context().
 	 * @return string
 	 */
-	public static function token_for_attachment( int $attachment_id ): string {
+	public static function token_for_attachment( int $attachment_id, string $context = '' ): string {
 		$attachment_id = absint( $attachment_id );
+		$context       = self::sanitize_context( $context );
 
 		if ( $attachment_id < 1 ) {
 			return '';
 		}
 
-		if ( isset( self::$attachment_tokens[ $attachment_id ] ) ) {
-			return self::$attachment_tokens[ $attachment_id ];
+		$cache_key = $attachment_id . '|' . $context;
+
+		if ( isset( self::$attachment_tokens[ $cache_key ] ) ) {
+			return self::$attachment_tokens[ $cache_key ];
 		}
 
 		$dimensions = self::attachment_source_dimensions( $attachment_id );
 
 		if ( ! wp_attachment_is_image( $attachment_id ) || ! self::dimensions_are_safe( $dimensions ) ) {
-			self::$attachment_tokens[ $attachment_id ] = '';
+			self::$attachment_tokens[ $cache_key ] = '';
 			return '';
 		}
 
-		$token                                     = self::sign_payload( 'attachment:' . $attachment_id );
-		self::$attachment_tokens[ $attachment_id ] = $token;
+		$token                                 = self::sign_payload( 'attachment:' . $attachment_id . ( '' !== $context ? '|' . $context : '' ) );
+		self::$attachment_tokens[ $cache_key ] = $token;
 
 		return $token;
+	}
+
+	/**
+	 * Derive a placement context from an image tag's class list.
+	 *
+	 * Per-attachment and plugin-owned classes are ignored, so the same layout
+	 * slot maps to the same context on every page and for every attachment.
+	 *
+	 * @param string $classes Image class attribute.
+	 * @return string Twelve hex characters.
+	 */
+	public static function attachment_context( string $classes ): string {
+		$tokens = preg_split( '/\s+/', strtolower( trim( $classes ) ) );
+		$tokens = array_filter(
+			is_array( $tokens ) ? $tokens : array(),
+			static function ( string $token ): bool {
+				return '' !== $token
+					&& 1 !== preg_match( '/^wp-image-[0-9]+$/', $token )
+					&& 0 !== strpos( $token, 'empirical-responsive-image' );
+			}
+		);
+		$tokens = array_values( array_unique( $tokens ) );
+		sort( $tokens );
+
+		return substr( hash( 'sha256', implode( ' ', $tokens ) ), 0, 12 );
+	}
+
+	/**
+	 * Validate one placement context.
+	 *
+	 * @param string $context Context.
+	 * @return string
+	 */
+	public static function sanitize_context( string $context ): string {
+		return 1 === preg_match( '/^[a-f0-9]{12}$/', $context ) ? $context : '';
 	}
 
 	/**
@@ -502,6 +544,16 @@ final class Visitor_Gap_Target {
 	 * @return array
 	 */
 	private static function resolve_attachment( string $raw_id ): array {
+		$context = '';
+
+		if ( false !== strpos( $raw_id, '|' ) ) {
+			list( $raw_id, $context ) = explode( '|', $raw_id, 2 );
+
+			if ( '' === self::sanitize_context( $context ) ) {
+				return array();
+			}
+		}
+
 		if ( ! preg_match( '/^[1-9][0-9]*$/', $raw_id ) ) {
 			return array();
 		}
@@ -523,6 +575,7 @@ final class Visitor_Gap_Target {
 			'type'             => 'attachment',
 			'key'              => 'attachment:' . $attachment_id,
 			'attachment_id'    => $attachment_id,
+			'context'          => $context,
 			'url'              => '',
 			'source_width'     => absint( $dimensions['width'] ?? 0 ),
 			'source_height'    => absint( $dimensions['height'] ?? 0 ),
