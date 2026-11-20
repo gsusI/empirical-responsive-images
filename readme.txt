@@ -4,7 +4,7 @@ Tags: responsive images, image sizes, srcset, thumbnails, lcp
 Requires at least: 6.9
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.3.17
+Stable tag: 0.3.18
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -166,6 +166,9 @@ No. Only marked local images and a fixed list of sizes are accepted. Near matche
 Most standard WordPress hosts should work if uploads are writable, WordPress background tasks run normally, and the server can create the requested image format. If background tasks are disabled, queued work waits until the host runs them.
 
 == Changelog ==
+
+= 0.3.18 =
+* Sharper theme and plugin images in modern formats: a WebP or AVIF source now lists every width the image offers or is left out, so a wide slot no longer gets a narrow file. The background job also makes the original image in each format, so the source fills in on its own.
 
 = 0.3.17 =
 * Sharper images where the same photo appears at different sizes, such as a large featured image that also shows as a small card thumbnail. Each placement now learns its own size instead of sharing one, so a thumbnail no longer makes the large image blurry.

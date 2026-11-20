@@ -1,3 +1,8 @@
+= 0.3.18 - 2026-11-20 =
+* Fixed - Theme and plugin images (assets) got a WebP or AVIF source that listed only the widths generated so far, while the image also listed its original width. Browsers chose from that subset, so a slot needing about 1300px got a 531px file. A format source for an asset now lists every width or is left out, as for media library images since 0.3.17.
+* Fixed - The background job that makes one learned asset width now also makes the original asset in each enabled format, so its format sources become complete instead of staying out.
+* Changed - Checking format support no longer loads wp-admin/includes/image.php; the check is a core media function.
+
 = 0.3.17 - 2026-11-11 =
 * Fixed - Learned sizes hints are now kept per placement instead of per attachment. The signed visitor target carries a short context derived from the image's class list (ignoring wp-image-N and plugin classes), and layout evidence is stored under the attachment and that context. A photo used both as a large featured image and as a small card no longer gets the card's sizes value everywhere. Evidence recorded before this release has no context and is no longer used for sizes.
 * Fixed - Images cropped with object-fit: cover are measured by the width the crop needs (box height x intrinsic aspect ratio, at most four times the box), not the box width. Such reports carry a cover flag, may exceed the viewport by up to three times, and stop the plugin from adding sizes="auto" for that placement, because browsers resolve auto to the box width.
