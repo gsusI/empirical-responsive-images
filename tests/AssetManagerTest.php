@@ -99,6 +99,46 @@ final class AssetManagerTest extends TestCase {
 		self::assertSame( array(), $manual['errors'] );
 	}
 
+	public function test_format_source_is_left_out_until_every_width_has_it(): void {
+		$this->enable_webp();
+		$manager = new Asset_Manager( new Settings() );
+		$url     = 'https://example.test/wp-content/.wordpress-org/source-icon-1024.png';
+
+		$this->create_same_format_variant( $manager, $url, 736 );
+		$this->create_format_variant( $manager, $url, 736, 'webp' );
+
+		// The original 1024w has no WebP yet: a WebP source listing only 736w would
+		// send that file to slots that need the full width.
+		$partial = $manager->get_existing_asset_sources( $url, array( 736 ), array() );
+
+		self::assertStringContainsString( '1024w', $partial['srcset'] );
+		self::assertArrayNotHasKey( 'webp', $partial['formats'] );
+
+		$this->create_format_variant( $manager, $url, 1024, 'webp' );
+
+		$complete = $manager->get_existing_asset_sources( $url, array( 736 ), array() );
+
+		self::assertStringContainsString( 'source-icon-1024-736w.webp 736w', $complete['formats']['webp'] );
+		self::assertStringContainsString( 'source-icon-1024-1024w.webp 1024w', $complete['formats']['webp'] );
+	}
+
+	public function test_automatic_width_generation_also_covers_the_original_alternate_format(): void {
+		$this->enable_webp();
+		$manager = new Asset_Manager( new Settings() );
+		$url     = 'https://example.test/wp-content/.wordpress-org/source-icon-1024.png';
+
+		$this->create_same_format_variant( $manager, $url, 736 );
+		$this->create_format_variant( $manager, $url, 736, 'webp' );
+		$this->create_format_variant( $manager, $url, 1024, 'webp' );
+
+		$automatic = $manager->generate_for_asset_width( $url, 736 );
+
+		// 736w PNG, 736w WebP and the original's 1024w WebP are all checked and current.
+		self::assertSame( 0, $automatic['generated'] );
+		self::assertSame( 3, $automatic['skipped'] );
+		self::assertSame( array(), $automatic['errors'] );
+	}
+
 	public function test_existing_asset_widths_discovers_non_grid_variant(): void {
 		$manager = new Asset_Manager( new Settings() );
 		$url     = 'https://example.test/wp-content/.wordpress-org/source-icon-1024.png';
@@ -142,6 +182,27 @@ final class AssetManagerTest extends TestCase {
 
 		$this->created_directories = array( $root, $plugin, $assets, $directory );
 
+		self::assertTrue( copy( $source, $target ) );
+		self::assertTrue( touch( $target, false === $source_age ? time() : $source_age ) );
+
+		$this->created_files[] = $target;
+	}
+
+	private function enable_webp(): void {
+		$settings                 = ( new Settings() )->defaults();
+		$settings['webp_enabled'] = true;
+		$settings['avif_enabled'] = false;
+		$GLOBALS['eri_test_options'][ Settings::OPTION_NAME ] = $settings;
+		$GLOBALS['eri_test_supported_formats']['image/webp']   = true;
+	}
+
+	private function create_format_variant( Asset_Manager $manager, string $url, int $width, string $format ): void {
+		$directory  = $this->upload_directory . '/empirical-responsive-images/assets/' . $manager->key_for_url( $url );
+		$source     = dirname( __DIR__ ) . '/.wordpress-org/source-icon-1024.png';
+		$target     = $directory . '/source-icon-1024-' . $width . 'w.' . $format;
+		$source_age = filemtime( $source );
+
+		self::assertDirectoryExists( $directory );
 		self::assertTrue( copy( $source, $target ) );
 		self::assertTrue( touch( $target, false === $source_age ? time() : $source_age ) );
 

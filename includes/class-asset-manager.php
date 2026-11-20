@@ -384,7 +384,9 @@ final class Asset_Manager {
 				}
 			}
 
-			if ( ! empty( $format_candidates ) ) {
+			// A source that lists only some widths makes the browser pick from that
+			// subset, so a wide slot could get a narrow file. List every width or none.
+			if ( ! empty( $format_candidates ) && count( $format_candidates ) === count( $candidates ) ) {
 				$formats[ $format ] = $this->build_srcset_from_candidates( $format_candidates );
 			}
 		}
@@ -490,7 +492,9 @@ final class Asset_Manager {
 	 * Generate one requested asset width and its enabled alternate formats.
 	 *
 	 * Unlike full/manual asset generation, this does not add the original source
-	 * width unless the requested width itself is capped to that width.
+	 * width unless the requested width itself is capped to that width. It does
+	 * make the original's alternate formats: front-end sources always list the
+	 * original width, and a format source is left out until every width has it.
 	 *
 	 * @param string $url   Image URL.
 	 * @param int    $width Target width.
@@ -498,9 +502,52 @@ final class Asset_Manager {
 	 * @return array
 	 */
 	public function generate_for_asset_width( string $url, int $width, bool $force = false ): array {
-		$result = $this->build_sources( $url, array( $width ), array(), true, $force, false );
+		$result   = $this->summarize_generation_result( $this->build_sources( $url, array( $width ), array(), true, $force, false ) );
+		$original = $this->ensure_source_format_variants( $url, $force );
 
-		return $this->summarize_generation_result( $result );
+		return array(
+			'generated' => $result['generated'] + $original['generated'],
+			'skipped'   => $result['skipped'] + $original['skipped'],
+			'errors'    => array_slice( array_unique( array_merge( $result['errors'], $original['errors'] ) ), 0, 10 ),
+		);
+	}
+
+	/**
+	 * Make the enabled alternate formats of the original asset at its own width.
+	 *
+	 * @param string $url   Image URL.
+	 * @param bool   $force Force rebuild.
+	 * @return array Generation counters and errors.
+	 */
+	private function ensure_source_format_variants( string $url, bool $force ): array {
+		$counts = array(
+			'generated' => 0,
+			'skipped'   => 0,
+			'errors'    => array(),
+		);
+		$source = $this->resolve_source( $url );
+
+		if ( empty( $source ) ) {
+			return $counts;
+		}
+
+		foreach ( $this->settings->get_enabled_formats() as $format ) {
+			if ( ! $this->supports_format( $format ) || ! Alpha_Compat::can_use_format_for_source( $source['path'], $format ) ) {
+				continue;
+			}
+
+			$result = $this->ensure_format_variant( $source['path'], $source, absint( $source['width'] ), $format, $force );
+
+			if ( is_wp_error( $result ) ) {
+				$counts['errors'][] = $result->get_error_message();
+			} elseif ( ! empty( $result['generated'] ) ) {
+				++$counts['generated'];
+			} else {
+				++$counts['skipped'];
+			}
+		}
+
+		return $counts;
 	}
 
 	/**
@@ -920,7 +967,9 @@ final class Asset_Manager {
 	 * @return bool
 	 */
 	private function supports_format( string $format ): bool {
-		require_once ABSPATH . 'wp-admin/includes/image.php';
+		if ( ! function_exists( 'wp_image_editor_supports' ) ) {
+			require_once ABSPATH . 'wp-includes/media.php';
+		}
 
 		return (bool) wp_image_editor_supports(
 			array(
