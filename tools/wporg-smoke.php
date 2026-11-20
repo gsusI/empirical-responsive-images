@@ -261,7 +261,10 @@ if ( ! is_array( $attachment_metadata ) || ! wp_update_attachment_metadata( $att
 	$fail( 'could not generate core metadata for the automatic optimization smoke attachment' );
 }
 
-$attachment_target = Visitor_Gap_Target::token_for_attachment( $attachment_id );
+// Learned sizes are kept per placement, keyed by the image classes. The direct
+// rendering checked below prints the large size, so learn for that placement.
+$attachment_context = Visitor_Gap_Target::attachment_context( 'attachment-large size-large' );
+$attachment_target  = Visitor_Gap_Target::token_for_attachment( $attachment_id, $attachment_context );
 
 if ( '' === $attachment_target ) {
 	$fail( 'could not create a signed target for the automatic optimization smoke attachment' );
@@ -474,7 +477,7 @@ if ( 1 !== $gap_purge_count || ! empty( $completed_gap_data['cache']['dirty'] ) 
 	$fail( 'completed automatic optimization did not purge stale page markup exactly once' );
 }
 
-$automatic_slots = ( new Observation_Store() )->get_attachment_slot_widths( $attachment_id );
+$automatic_slots = ( new Observation_Store() )->get_attachment_slot_widths( $attachment_id, $attachment_context );
 
 if ( array( '1536' => 608 ) !== $automatic_slots ) {
 	$fail( 'background optimizer did not persist bounded attachment layout evidence' );
@@ -744,7 +747,7 @@ wp_clear_scheduled_hook( Background_Optimizer::BATCH_HOOK );
 wp_delete_attachment( $attachment_id, true );
 wp_delete_post( $attachment_parent_id, true );
 
-if ( array() !== ( new Observation_Store() )->get_attachment_slot_widths( $attachment_id ) ) {
+if ( array() !== ( new Observation_Store() )->get_attachment_slot_widths( $attachment_id, $attachment_context ) ) {
 	$fail( 'deleting an attachment left visitor-learned layout data behind' );
 }
 
